@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="ur3e_susgrip">
+  <!-- Robot name parameter -->
+  <xacro:arg name="name" default="ur3e_susgrip"/>
+  
+  <!-- Robot type default is ur3e -->
+  <xacro:arg name="ur_type" default="ur3e"/>
+
+  <!-- Include UR macro and Susgrip 2F macro from local urdf directory -->
+  <xacro:include filename="ur_macro.xacro"/>
+  <xacro:include filename="susgrip_2f_macro.xacro"/>
+
+  <!-- Parameters -->
+  <xacro:arg name="tf_prefix" default="" />
+  <xacro:arg name="joint_limit_params" default="../config/joint_limits.yaml"/>
+  <xacro:arg name="kinematics_params" default="../config/default_kinematics.yaml"/>
+  <xacro:arg name="physical_params" default="../config/physical_parameters.yaml"/>
+  <xacro:arg name="visual_params" default="../config/visual_parameters.yaml"/>
+  <xacro:arg name="safety_limits" default="false"/>
+  <xacro:arg name="safety_pos_margin" default="0.15"/>
+  <xacro:arg name="safety_k_position" default="20"/>
+
+  <!-- Initial position file from local urdf directory -->
+  <xacro:arg name="initial_positions_file" default="../config/initial_positions.yaml"/>
+  <xacro:property name="initial_positions_file" default="$(arg initial_positions_file)"/>
+
+  <!-- Fixed world link -->
+  <link name="world" />
+
+  <!-- UR3e Robot Arm -->
+  <xacro:ur_robot
+    name="$(arg name)"
+    tf_prefix="$(arg tf_prefix)"
+    parent="world"
+    joint_limits_parameters_file="$(arg joint_limit_params)"
+    kinematics_parameters_file="$(arg kinematics_params)"
+    physical_parameters_file="$(arg physical_params)"
+    visual_parameters_file="$(arg visual_params)"
+    safety_limits="$(arg safety_limits)"
+    safety_pos_margin="$(arg safety_pos_margin)"
+    safety_k_position="$(arg safety_k_position)"
+    initial_positions="${xacro.load_yaml(initial_positions_file)}"
+    ur_type="$(arg ur_type)">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:ur_robot>
+
+  <!-- Connect SusGrip 2F Gripper to tool0 -->
+  <xacro:susgrip_2f
+    prefix="$(arg tf_prefix)"
+    parent="$(arg tf_prefix)tool0">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:susgrip_2f>
+
+</robot>

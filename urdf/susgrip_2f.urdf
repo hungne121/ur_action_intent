@@ -1,0 +1,845 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    susgrip_2f.urdf
+    author : hong xiem
+    date : 25Mar24
+    Licensed under the BSD-3-Clause
+    Copyright (c) 2025 Tesollo Inc.
+    See LICENSE file for details.
+-->
+
+<robot
+  name="susgrip_description">
+
+  <material name="color_base">
+    <color rgba="0.423529 0.494118 0.882353 1.0" />
+  </material>
+  <material name="color_finger">
+    <color rgba="0.572549 0.72549 0.890196 1.0" />
+  </material>
+  <material name="color_pad">
+    <color rgba="1.0 0.768627 0.643137 1.0" />
+  </material>
+  <material name="color_link">
+    <color rgba="0.776471 0.533333 0.921569 1.0" />
+  </material>
+  <material name="color_slider">
+    <color rgba="0.984314 0.635294 0.815686 1.0" />
+  </material>
+  <material name="color_A1">
+    <color rgba="0.627450 0.866666 1 1" />
+  </material>
+  <material name="color_A2">
+    <color rgba="0.129411 0.172549 0.407843 1" />
+  </material>
+  
+<!-- *************************** world link ************************************* -->
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+      <parent link="world"/>
+      <child link="sus2f_base_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+<!-- *************************** base link ************************************* -->
+  <link
+    name="sus2f_base_link">
+    <!-- <inertial>
+      <origin
+        xyz="0. 0. 0.06"
+        rpy="-1.570796 0. 0." />
+      <mass
+        value="0.148118292371017" />
+      <inertia
+        ixx="0.000127380225676606"
+        ixy="2.45032695761012E-06"
+        ixz="-4.42797188296029E-07"
+        iyy="0.000134249396452626"
+        iyz="-1.25005318301663E-07"
+        izz="0.000126530130055728" />
+    </inertial> -->
+    <visual>
+      <origin
+        xyz="0. 0. 0.06"
+        rpy="-1.570796 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Base.STL"
+          />
+      </geometry>
+      <material
+        name="color_base">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="-0.041 0.0125 0.02"
+        rpy="1.570796 0 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_ShaftPhi_0.STL"
+          />
+      </geometry>
+      <material
+        name="color_base">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="-0.041 -0.0125 0.02"
+        rpy="1.570796 0 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_ShaftPhi_1.STL"
+          />
+      </geometry>
+      <material
+        name="color_base">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="0.041 0.0125 0.02"
+        rpy="1.570796 0 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_ShaftPhi_2.STL"
+          />
+      </geometry>
+      <material
+        name="color_base">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="0.041 -0.0125 0.02"
+        rpy="1.570796 0 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_ShaftPhi_3.STL"
+          />
+      </geometry>
+      <material
+        name="color_base">
+      </material>
+    </visual>
+
+    <visual>
+      <origin
+        xyz="0.0184 0.027 0.07"
+        rpy="0 3.141592 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_A1.obj"
+          />
+      </geometry>
+      <material
+        name="color_A1">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="-0.0184 0.027 0.07"
+        rpy="0 3.141592 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_A2.obj"
+          />
+      </geometry>
+      <material
+        name="color_A2">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="-0.0184 -0.027 0.07"
+        rpy="0 3.141592 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_A1.obj"
+          />
+      </geometry>
+      <material
+        name="color_A1">
+      </material>
+    </visual>
+    <visual>
+      <origin
+        xyz="0.0184 -0.027 0.07"
+        rpy="0 3.141592 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_A2.obj"
+          />
+      </geometry>
+      <material
+        name="color_A2">
+      </material>
+    </visual>
+
+    <collision>
+      <origin
+        xyz="0. 0. 0.06"
+        rpy="-1.570796 0. 0." />  
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Base.STL"
+          />
+      </geometry>
+    </collision>
+  </link>
+
+<!-- *************************** slider l link ************************************* -->
+
+  <link name="sus2f_slider_l_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Slider_L.obj" />
+      </geometry>
+      <material
+        name="">
+        <color rgba="0.129411 0.172549 0.407843 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Slider_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="base_slider_l_joint"
+    type="prismatic">
+    <limit effort="100.0" lower="0.0" upper="0.015" velocity="0.5"/>
+    <origin
+      xyz="0. 0. 0."
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_base_link" />
+    <child
+      link="sus2f_slider_l_link" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+
+<!-- *************************** outer l link ************************************* -->
+
+  <link name="sus2f_outer_l_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0.053 0. -0.043"
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Outer_L.obj" />
+      </geometry>
+      <material
+        name="color_link">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0.053 0. -0.043"
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Outer_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="slider_outer_l_joint"
+    type="continuous">
+    <limit effort="100.0" lower="-1.5" upper="1.5" velocity="0.5"/>
+    <origin
+      xyz="-0.053 0. 0.043"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_slider_l_link" />
+    <child
+      link="sus2f_outer_l_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** finger l link ************************************* -->
+
+  <link name="sus2f_finger_l_link">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0"/>
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0.053 0 -0.097"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Finger_L.obj" />
+      </geometry>
+      <material
+        name="color_finger">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0.053 0 -0.097"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Finger_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+
+  
+  <joint
+    name="finger_outer_l_joint"
+    type="continuous">
+    <origin
+      xyz="0.0 0. 0.054"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_outer_l_link" />
+    <child
+      link="sus2f_finger_l_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** inner l link ************************************* -->
+
+  <link name="sus2f_inner_l_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0.04 0. -0.097"
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Inner_L.obj" />
+      </geometry>
+      <material
+        name="color_link">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0.04 0. -0.097"
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Inner_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="finger_inner_l_joint"
+    type="continuous">
+    <origin
+      xyz="0.013 0. 0."
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_finger_l_link" />
+    <child
+      link="sus2f_inner_l_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** pad l link ************************************* -->
+
+  <link name="sus2f_pad_l_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. 0.016 0.027"
+        rpy="0. 0. -1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Pad_L.obj" />
+      </geometry>
+      <material
+        name="color_pad">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. 0.016 0.027"
+        rpy="0. 0. -1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Pad_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="pad_inner_l_joint"
+    type="continuous">
+    <limit effort="100.0" velocity="0.5"/>
+    <origin
+      xyz="0. 0. -0.027"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_inner_l_link" />
+    <child
+      link="sus2f_pad_l_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** passive pad l link ************************************* -->
+
+  <link name="sus2f_passive_pad_l_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. -0.016 0.027"
+        rpy="0. 0. 1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Passive_Link_L.obj" />
+      </geometry>
+      <material
+        name="color_pad">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. -0.016 0.027"
+        rpy="0. 0. 1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Passive_Link_L.obj"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="passive_pad_inner_l_joint"
+    type="continuous">
+    <limit effort="100.0" velocity="0.5"/>
+    <origin
+      xyz="0. 0. -0.027"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_inner_l_link" />
+    <child
+      link="sus2f_passive_pad_l_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- ************************************************************************
+*************************** right slide *************************************
+***************************************************************************** -->
+
+  <link name="sus2f_slider_r_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Slider_R.obj" />
+      </geometry>
+      <material
+        name="color_slider">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Slider_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="base_slider_r_joint"
+    type="prismatic">
+    <limit effort="100.0" lower="1" upper="0.015" velocity="0.5"/>
+    <origin
+      xyz="0. 0. 0."
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_base_link" />
+    <child
+      link="sus2f_slider_r_link" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+
+<!-- *************************** outer r link ************************************* -->
+
+  <link name="sus2f_outer_r_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="-0.053 0. -0.043"
+        rpy="0. 0. 3.141593" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Outer_R.obj" />
+      </geometry>
+      <material
+        name="color_link">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="-0.053 0. -0.043"
+        rpy="0. 0. 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Outer_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="slider_outer_r_joint"
+    type="continuous">
+    <limit effort="100.0" lower="-1.5" upper="1.5" velocity="0.5"/>
+    <origin
+      xyz="0.053 0. 0.043"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_slider_r_link" />
+    <child
+      link="sus2f_outer_r_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** finger r link ************************************* -->
+
+  <link name="sus2f_finger_r_link">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0"/>
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0.053 0 -0.097"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Finger_R.obj" />
+      </geometry>
+      <material
+        name="color_finger">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0.053 0 -0.097"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Finger_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="finger_outer_r_joint"
+    type="continuous">
+    <origin
+      xyz="0.0 0. 0.054"
+      rpy="0. 0. 3.141592" />
+    <parent
+      link="sus2f_outer_r_link" />
+    <child
+      link="sus2f_finger_r_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** inner r link ************************************* -->
+
+  <link name="sus2f_inner_r_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0.04 0. -0.097"
+        rpy="0. 0. 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Inner_R.obj" />
+      </geometry>
+      <material
+        name="color_link">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0.04 0. -0.097"
+        rpy="0. 0. 3.141592" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Inner_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="finger_inner_r_joint"
+    type="continuous">
+    <origin
+      xyz="0.013 0. 0."
+      rpy="0. 0. 3.141592" />
+    <parent
+      link="sus2f_finger_r_link" />
+    <child
+      link="sus2f_inner_r_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** pad r link ************************************* -->
+
+  <link name="sus2f_pad_r_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. -0.016 0.027"
+        rpy="0. 0. 1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Pad_R.obj" />
+      </geometry>
+      <material
+        name="color_pad">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. -0.016 0.027"
+        rpy="0. 0. 1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Pad_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="pad_inner_r_joint"
+    type="continuous">
+    <limit effort="100.0" velocity="0.5"/>
+    <origin
+      xyz="0. 0. -0.027"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_inner_r_link" />
+    <child
+      link="sus2f_pad_r_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+<!-- *************************** passive pad l link ************************************* -->
+
+  <link name="sus2f_passive_pad_r_link">
+    <inertial>
+      <origin
+        xyz="0. 0. 0."
+        rpy="0. 0. 0." />
+      <mass
+        value="0.0050621" />
+      <inertia
+        ixx="5.5156E-07"
+        ixy="1.1032E-07"
+        ixz="-8.5308E-08"
+        iyy="3.9645E-07"
+        iyz="1.1084E-07"
+        izz="4.9988E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0. 0.016 0.027"
+        rpy="0. 0. -1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Passive_Link_R.obj" />
+      </geometry>
+      <material
+        name="color_pad">
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0. 0.016 0.027"
+        rpy="0. 0. -1.570796" />
+      <geometry>
+        <mesh
+          filename="../meshes/susgrip_2f_full/SUS_2F_Passive_Link_R.obj"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="passive_pad_inner_r_joint"
+    type="continuous">
+    <limit effort="100.0" velocity="0.5"/>
+    <origin
+      xyz="0. 0. -0.027"
+      rpy="0. 0. 0." />
+    <parent
+      link="sus2f_inner_r_link" />
+    <child
+      link="sus2f_passive_pad_r_link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+
+</robot>
