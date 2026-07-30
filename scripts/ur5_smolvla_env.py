@@ -82,7 +82,7 @@ class UR5Robotiq85:
                 print("[XACRO] Compilation complete!")
             robot_urdf_path = str(urdf_file)
         else:
-            robot_urdf_path = "./urdf/ur5_robotiq_85.urdf"
+            robot_urdf_path = "./urdf/ur3e_susgrip.urdf"
 
         # Load the robot model as a fixed-base manipulator.
         self.id = p.loadURDF(
