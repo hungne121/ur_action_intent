@@ -71,6 +71,9 @@ def build_lerobot_dataset(repo_id: str, root: str, cameras: list, fps: int = 10)
         "names": ["dx", "dy", "dz", "droll", "dpitch", "dyaw", "gripper"],
     }
 
+    if Path(root).exists():
+        shutil.rmtree(root)
+
     dataset = LeRobotDataset.create(
         repo_id=repo_id,
         root=root,
@@ -103,7 +106,7 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
         tpos, _ = p.getBasePositionAndOrientation(env.object_ids[target_name])
         tgt_pos = np.array(tpos, dtype=np.float32)
 
-    gripper_offset = 0.145
+    gripper_offset = getattr(env.cfg.robot, "gripper_finger_offset", 0.080)
 
 
     approach_height = obj_pos[2] + gripper_offset + 0.10
@@ -111,8 +114,9 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
     grasp_height = obj_pos[2] + gripper_offset
     lift_height = obj_pos[2] + gripper_offset + 0.22
 
-    open_gripper = 0.085
-    close_gripper = 0.0
+    open_gripper = float(env.gripper_range[1])
+    close_gripper = float(env.gripper_range[0])
+
 
     xy_noise = env.rng.uniform(-0.001, 0.001, size=2).astype(np.float32)
 
@@ -147,7 +151,7 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
         target = ee_pos.copy()
         gripper = open_gripper
 
-    step_speed = 0.008 if phase == "lift" else 0.015
+    step_speed = 0.015 if phase == "lift" else 0.025
     dir_vec = target - ee_pos
     dist = np.linalg.norm(dir_vec)
     if dist > step_speed:
@@ -166,24 +170,24 @@ def phase_done(env: ManipulationEnv, phase: str, step_count: int) -> bool:
     obj_pos, _ = p.getBasePositionAndOrientation(env.object_ids[obj_name])
     obj_pos = np.array(obj_pos, dtype=np.float32)
 
-    gripper_offset = 0.145
+    gripper_offset = getattr(env.cfg.robot, "gripper_finger_offset", 0.080)
 
 
     if phase == "approach":
         target = np.array([obj_pos[0], obj_pos[1], obj_pos[2] + gripper_offset + 0.10], dtype=np.float32)
-        return np.linalg.norm(ee_pos - target) < 0.025 or step_count > 30
+        return np.linalg.norm(ee_pos - target) < 0.008 or step_count >= 20
     elif phase == "pre_descend":
         target = np.array([obj_pos[0], obj_pos[1], obj_pos[2] + gripper_offset + 0.04], dtype=np.float32)
-        return np.linalg.norm(ee_pos - target) < 0.02 or step_count > 25
+        return np.linalg.norm(ee_pos - target) < 0.005 or step_count >= 20
     elif phase == "descend":
         target = np.array([obj_pos[0], obj_pos[1], obj_pos[2] + gripper_offset], dtype=np.float32)
-        return np.linalg.norm(ee_pos - target) < 0.015 or step_count > 25
+        return np.linalg.norm(ee_pos - target) < 0.003 or step_count >= 25
     elif phase == "close":
         return env.has_closed_gripper or step_count >= 10
     elif phase == "hold_close":
         return step_count >= 8
     elif phase == "lift":
-        return env.is_success() or step_count >= 50
+        return (env.is_success() and step_count >= 15) or step_count >= 60
     elif phase == "move_to_target":
         return step_count >= 40
     elif phase == "place":
@@ -227,6 +231,8 @@ def collect_dataset(
     if has_bowl:
         phases.extend(["move_to_target", "place"])
 
+    grasp_check_phases = {"lift", "move_to_target"}
+
     try:
         for ep_idx in range(num_episodes):
             obs = env.reset()
@@ -234,6 +240,9 @@ def collect_dataset(
             phase_idx = 0
             phase_step_count = 0
             success = False
+            grasp_maintained = True
+            lost_grasp_count = 0
+            obj_name = "cube" if "cube" in env.object_ids else list(env.object_ids.keys())[0]
 
             for _ in range(task_cfg.episode.max_steps):
                 current_phase = phases[phase_idx]
@@ -254,9 +263,17 @@ def collect_dataset(
                 obs, reward, done, _ = env.apply_action(action)
                 phase_step_count += 1
 
+                # Đảm bảo duy trì kẹp giữ vật trong suốt các phase nâng/di chuyển/đặt
+                if current_phase in grasp_check_phases:
+                    if not env.is_object_grasped(obj_name):
+                        lost_grasp_count += 1
+                        if lost_grasp_count > 10:
+                            grasp_maintained = False
+                    else:
+                        lost_grasp_count = 0
+
                 if phase_done(env, current_phase, phase_step_count):
                     ee_pos, _ = env.get_ee_pose()
-                    obj_name = "cube" if "cube" in env.object_ids else list(env.object_ids.keys())[0]
                     obj_pos, _ = p.getBasePositionAndOrientation(env.object_ids[obj_name])
                     print(f"  [DEBUG Phase {current_phase}->Next] Step={phase_step_count} EE_Z={ee_pos[2]:.3f} Obj_Z={obj_pos[2]:.3f}")
                     phase_idx += 1
@@ -264,9 +281,8 @@ def collect_dataset(
                     if phase_idx >= len(phases):
                         done = True
 
-
                 if done:
-                    success = env.is_success()
+                    success = env.is_success() and grasp_maintained
                     break
 
             if success:
@@ -276,7 +292,8 @@ def collect_dataset(
             else:
                 dataset.clear_episode_buffer(delete_images=True)
                 dropped_count += 1
-                print(f"[Episode {ep_idx + 1:03d}/{num_episodes}] DROPPED| Task: '{task_cfg.task_name}' | Instruction: '{obs['instruction']}' (Saved={saved_count}, Dropped={dropped_count})")
+                reason = "grasp lost" if not grasp_maintained else "position check failed"
+                print(f"[Episode {ep_idx + 1:03d}/{num_episodes}] DROPPED ({reason}) | Task: '{task_cfg.task_name}' | Instruction: '{obs['instruction']}' (Saved={saved_count}, Dropped={dropped_count})")
 
     finally:
         dataset.finalize()

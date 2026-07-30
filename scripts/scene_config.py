@@ -39,6 +39,7 @@ class RobotSpec:
     base_position: list = field(default_factory=lambda: [0, 0, 0])
     fixed_base: bool = True
     home_positions: Optional[dict] = None
+    gripper_finger_offset: float = 0.080
 
 
 

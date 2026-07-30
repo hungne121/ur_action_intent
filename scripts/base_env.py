@@ -6,15 +6,15 @@ Task khác nhau chỉ khác ở file config YAML, không cần viết class riê
 trừ khi success condition quá đặc thù (xem hàm _check_success để mở rộng).
 
 Tích hợp đầy đủ các tính năng đã triển khai trong dự án:
-- Tự động biên dịch xacro sang URDF khi cần.
+- Tự động biên dịch xacro sang URDF linh hoạt (đọc ROS_SETUP_PATHS từ env/config).
 - Hỗ trợ robot UR3e / UR5 với tay kẹp SusGrip 2F hoặc Robotiq 85 (mimic joints).
-- Tự động tìm end-effector link và tính Inverse Kinematics (IK).
-- Cấu hình lực ma sát cao (high friction dynamics) để giảm trượt khi gắp vật thể.
+- Tự động tìm arm joints theo tên chuẩn UR & end-effector link để tính IK.
+- Cấu hình lực ma sát cao mục tiêu (HIGH_FRICTION_LINKS) trên ngón kẹp để giữ vật chắc chắn mà không gây sốc vật lý.
 - Tô màu chuẩn thực tế (authentic colors) cho robot và gripper.
-- Hỗ trợ cả camera cố định (fixed camera) và camera gắn trên tay robot (eye-in-hand dynamic camera).
-- Đa dạng không gian action (dict joint target, 7D delta EE pose, 6D/7D joint vector).
+- Hỗ trợ camera cố định & camera gắn trên tay robot (eye-in-hand dynamic camera).
+- Đa dạng không gian action (dict joint target, 7D delta EE pose gồm cả rotation, 6D/7D joint vector).
 - Trả về observation phong phú (joint states, EE pose, object poses, RGB images, language instructions).
-- Kiểm tra điều kiện hoàn thành (success conditions) và thất bại (failure conditions).
+- Kiểm tra điều kiện hoàn thành (success conditions) và thất bại (failure conditions) chặt chẽ.
 """
 
 import math
@@ -33,9 +33,31 @@ import pybullet_data
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 try:
-    from envs.scene_config import TaskConfig
+    from scripts.scene_config import TaskConfig
 except ImportError:
-    from scene_config import TaskConfig
+    try:
+        from envs.scene_config import TaskConfig
+    except ImportError:
+        from scene_config import TaskConfig
+
+
+# Cấu hình danh sách đường dẫn ROS setup.bash cho xacro compile (dễ di động giữa các máy)
+ROS_SETUP_PATHS = os.environ.get(
+    "ROS_SETUP_PATHS",
+    "/opt/ros/humble/setup.bash:/home/hungdao/ur_ws/install/setup.bash"
+).split(":")
+
+# Danh sách các link ngón kẹp cần ma sát cao để giữ vật chắc chắn
+HIGH_FRICTION_LINKS = {
+    "sus2f_pad_l_link",
+    "sus2f_pad_r_link",
+    "sus2f_passive_pad_l_link",
+    "sus2f_passive_pad_r_link",
+    "sus2f_finger_l_link",
+    "sus2f_finger_r_link",
+    "robotiq_85_left_finger_pad",
+    "robotiq_85_right_finger_pad",
+}
 
 
 def _resolve_urdf_path(urdf_path: str) -> str:
@@ -77,10 +99,12 @@ def _resolve_urdf_path(urdf_path: str) -> str:
 
 
 def _compile_xacro_if_needed(xacro_path: Path, urdf_path: Path):
-    """Compile XACRO file to URDF if outdated or missing."""
+    """Compile XACRO file to URDF if outdated or missing using portable ROS paths."""
     if not urdf_path.exists() or xacro_path.stat().st_mtime > urdf_path.stat().st_mtime:
         print(f"[XACRO] Compiling {xacro_path.name} -> {urdf_path.name}...")
-        cmd = f"source /opt/ros/humble/setup.bash && source /home/hungdao/ur_ws/install/setup.bash 2>/dev/null; xacro '{xacro_path}' > '{urdf_path}'"
+        valid_sources = [f"source '{p}' 2>/dev/null" for p in ROS_SETUP_PATHS if Path(p).exists() or "/opt/ros" in p]
+        source_cmds = " && ".join(valid_sources) if valid_sources else ":"
+        cmd = f"{source_cmds}; xacro '{xacro_path}' > '{urdf_path}'"
         try:
             subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
             print("[XACRO] Compilation complete!")
@@ -99,7 +123,6 @@ class ManipulationEnv:
             self._client = p.connect(p.GUI, options="--width=1600 --height=1000")
         else:
             self._client = p.connect(p.DIRECT)
-
 
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.81)
@@ -139,7 +162,6 @@ class ManipulationEnv:
         self._spawn_objects()
         self._setup_debug_camera()
 
-
         self.current_step = 0
         self.has_closed_gripper = False
 
@@ -167,7 +189,7 @@ class ManipulationEnv:
         self._configure_friction()
 
     def _parse_joint_info(self):
-        """Parse joint and link info, locate arm joints and end-effector link."""
+        """Parse joint and link info, locate arm joints by standard UR names and find end-effector link."""
         joint_info_tuple = namedtuple(
             "JointInfo",
             [
@@ -220,8 +242,27 @@ class ManipulationEnv:
                 )
             )
 
-        # Arm controllable joints (first 6 controllable joints)
-        self.arm_controllable_joints = self.controllable_joints[:6]
+        # Xác định 6 joint của tay robot theo tên chuẩn UR để tránh phụ thuộc vào thứ tự trong URDF
+        arm_joint_names = [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ]
+        found_arm_joints = [
+            self._joint_name_to_index[name]
+            for name in arm_joint_names
+            if name in self._joint_name_to_index
+        ]
+
+        if len(found_arm_joints) == 6:
+            self.arm_controllable_joints = found_arm_joints
+        else:
+            # Fallback lấy 6 joint controllable đầu tiên nếu URDF dùng tên khớp tùy biến khác
+            self.arm_controllable_joints = self.controllable_joints[:6]
+
         self.arm_num_dofs = len(self.arm_controllable_joints)
 
         # Locate end-effector link index
@@ -249,17 +290,20 @@ class ManipulationEnv:
         self.ik_upper_limits = []
         self.ik_joint_ranges = []
         self.ik_rest_poses = []
-        home_dict = {0: 0.0, 1: -1.40, 2: 1.45, 3: -1.60, 4: -1.57, 5: 0.0}
+        arm_home_poses = [0.0, -1.40, 1.45, -1.60, -1.57, 0.0]
 
-        for idx, j in enumerate(self.joints):
-            if j.controllable:
-                low, high = j.lowerLimit, j.upperLimit
-                if low >= high:
-                    low, high = -2 * np.pi, 2 * np.pi
-                self.ik_lower_limits.append(low)
-                self.ik_upper_limits.append(high)
-                self.ik_joint_ranges.append(high - low)
-                self.ik_rest_poses.append(home_dict.get(idx, 0.0))
+        for idx, j_id in enumerate(self.controllable_joints):
+            j_info = self.joints[j_id]
+            low, high = j_info.lowerLimit, j_info.upperLimit
+            if low >= high:
+                low, high = -2 * np.pi, 2 * np.pi
+            self.ik_lower_limits.append(low)
+            self.ik_upper_limits.append(high)
+            self.ik_joint_ranges.append(high - low)
+            if idx < len(arm_home_poses):
+                self.ik_rest_poses.append(arm_home_poses[idx])
+            else:
+                self.ik_rest_poses.append(0.0)
 
     def _setup_mimic_joints(self):
         """Tie child gripper joints to parent joint (Robotiq 85 & SusGrip 2F)."""
@@ -271,6 +315,8 @@ class ManipulationEnv:
 
         self.mimic_parent_id = mimic_parents[0].id
 
+        # Hệ số (multiplier, offset) khớp mimic được đo/khớp từ mô hình CAD và cơ cấu truyền động vật lý
+        # của SusGrip 2F và Robotiq 85 khi chuyển động đồng bộ.
         mimic_children_info = {
             # Robotiq 85
             "right_outer_knuckle_joint": (1.0, 0.0),
@@ -278,14 +324,14 @@ class ManipulationEnv:
             "right_inner_knuckle_joint": (1.0, 0.0),
             "left_inner_finger_joint": (-1.0, 0.0),
             "right_inner_finger_joint": (-1.0, 0.0),
-            # SusGrip 2F
-            "base_slider_l_joint": (1.0, 0.0),
+            # SusGrip 2F (multiplier, offset)
+            "base_slider_l_joint": (0.036, 0.000753),
             "slider_outer_l_joint": (-9.632, 0.609479),
             "finger_outer_l_joint": (9.632, -0.609479),
             "pad_inner_l_joint": (19.264, -1.218957),
             "passive_pad_inner_l_joint": (19.264, -1.218957),
             "finger_inner_l_joint": (-9.632, 0.609479),
-            "base_slider_r_joint": (1.0, 0.0),
+            "base_slider_r_joint": (0.036, 0.000753),
             "slider_outer_r_joint": (9.632, -0.609479),
             "finger_outer_r_joint": (9.632, -0.609479),
             "pad_inner_r_joint": (-19.264, 1.218957),
@@ -299,41 +345,44 @@ class ManipulationEnv:
             if j.name in mimic_children_info and j.id != self.mimic_parent_id
         }
 
-        if mimic_parents[0].name == "gripper_joint":
-            self.gripper_range = [0.0, 0.130]
-        else:
-            self.gripper_range = [0.0, 0.085]
+        self.gripper_range = [0.0, 0.085]
 
-        # Create rigid PyBullet gear constraints for all mimic joints (Robotiq 85 & SusGrip 2F)
-        for j_id, (mult, _) in self.mimic_child_info.items():
-            j_info = [j for j in self.joints if j.id == j_id]
-            axis = [0, 0, 1] if (j_info and j_info[0].type == p.JOINT_PRISMATIC) else [0, 1, 0]
-            cid = p.createConstraint(
-                self.robot_id,
-                self.mimic_parent_id,
-                self.robot_id,
-                j_id,
-                jointType=p.JOINT_GEAR,
-                jointAxis=axis,
-                parentFramePosition=[0, 0, 0],
-                childFramePosition=[0, 0, 0],
-            )
-            p.changeConstraint(cid, gearRatio=-mult, maxForce=500, erp=1.0)
-
-
+        if mimic_parents[0].name == "finger_joint":
+            # Create gear constraints for Robotiq 85 (where offsets are 0.0)
+            for j_id, (mult, offset) in self.mimic_child_info.items():
+                if offset == 0.0:
+                    cid = p.createConstraint(
+                        self.robot_id,
+                        self.mimic_parent_id,
+                        self.robot_id,
+                        j_id,
+                        jointType=p.JOINT_GEAR,
+                        jointAxis=[0, 1, 0],
+                        parentFramePosition=[0, 0, 0],
+                        childFramePosition=[0, 0, 0],
+                    )
+                    p.changeConstraint(cid, gearRatio=-mult, maxForce=500, erp=1.0)
 
     def _configure_friction(self):
-        """Set ultra-high friction dynamics on gripper & robot fingers to prevent slipping."""
+        """Áp dụng ma sát mục tiêu: Ma sát cao (lateralFriction=5.0) cho ngón kẹp và ma sát vừa phải (0.8) cho thân tay máy."""
         num_joints = p.getNumJoints(self.robot_id)
         for link_id in range(-1, num_joints):
-            p.changeDynamics(
-                self.robot_id,
-                link_id,
-                lateralFriction=1000.0,
-                spinningFriction=1.0,
-                frictionAnchor=1,
-            )
-
+            link_name = "base_link" if link_id == -1 else p.getJointInfo(self.robot_id, link_id)[12].decode("utf-8")
+            if link_name in HIGH_FRICTION_LINKS or "pad" in link_name:
+                p.changeDynamics(
+                    self.robot_id,
+                    link_id,
+                    lateralFriction=5.0,
+                    spinningFriction=0.5,
+                    frictionAnchor=1,
+                )
+            else:
+                p.changeDynamics(
+                    self.robot_id,
+                    link_id,
+                    lateralFriction=0.8,
+                    spinningFriction=0.1,
+                )
 
     def _apply_authentic_robot_colors(self):
         """Apply UR3e / UR5 & SusGrip authentic color palette."""
@@ -428,9 +477,7 @@ class ManipulationEnv:
                 j_id = self.arm_controllable_joints[idx]
                 p.resetJointState(self.robot_id, j_id, targetValue=float(target))
 
-
     def move_arm_ik_absolute(self, target_pos: List[float], target_orn: Optional[List[float]] = None):
-
         """Control robot arm to target position using Inverse Kinematics."""
         if target_orn is None:
             target_orn = p.getQuaternionFromEuler(self.fixed_ee_euler)
@@ -440,12 +487,9 @@ class ManipulationEnv:
             self.eef_id,
             target_pos,
             target_orn,
-            lowerLimits=self.ik_lower_limits,
-            upperLimits=self.ik_upper_limits,
-            jointRanges=self.ik_joint_ranges,
             restPoses=self.ik_rest_poses,
-            maxNumIterations=100,
-            residualThreshold=0.0001,
+            maxNumIterations=500,
+            residualThreshold=1e-5,
         )
 
         for i, j_id in enumerate(self.arm_controllable_joints):
@@ -458,7 +502,7 @@ class ManipulationEnv:
                 maxVelocity=3.0,
             )
 
-    def move_gripper(self, open_length: float):
+    def move_gripper(self, open_length: float, force: float = 500.0):
         """Set gripper target opening width."""
         if self.mimic_parent_id is None:
             return
@@ -472,7 +516,9 @@ class ManipulationEnv:
                 self.mimic_parent_id,
                 p.POSITION_CONTROL,
                 targetPosition=open_length,
-                force=500,
+                force=force,
+                positionGain=1.0,
+                velocityGain=1.0,
             )
             for j_id, (mult, offset) in self.mimic_child_info.items():
                 p.setJointMotorControl2(
@@ -480,7 +526,9 @@ class ManipulationEnv:
                     j_id,
                     p.POSITION_CONTROL,
                     targetPosition=mult * open_length + offset,
-                    force=500,
+                    force=force,
+                    positionGain=1.0,
+                    velocityGain=1.0,
                 )
         else:
             target_pos = (
@@ -493,11 +541,11 @@ class ManipulationEnv:
                 self.mimic_parent_id,
                 p.POSITION_CONTROL,
                 targetPosition=target_pos,
-                force=100,
+                force=force,
             )
 
     def gripper_close(self, target_obj_name: Optional[str] = None) -> bool:
-        """Close gripper gradually until contact is made."""
+        """Close gripper until contact is made, then apply strong clamping force to maintain grasp."""
         if self.mimic_parent_id is None:
             return False
 
@@ -505,33 +553,72 @@ class ManipulationEnv:
         if target_obj_id is None and self.object_ids:
             target_obj_id = list(self.object_ids.values())[0]
 
+        pad_names = [
+            "sus2f_pad_l_link", "sus2f_pad_r_link",
+            "sus2f_passive_pad_l_link", "sus2f_passive_pad_r_link",
+            "sus2f_finger_l_link", "sus2f_finger_r_link",
+            "robotiq_85_left_finger_pad", "robotiq_85_right_finger_pad",
+            "left_inner_finger_pad", "right_inner_finger_pad",
+        ]
+        pad_idxs = set(self._link_name_to_index[l] for l in pad_names if l in self._link_name_to_index)
+
         grip_val = self.gripper_range[1]
-        max_iters = 15
+        max_iters = 30
         step_size = (self.gripper_range[1] - self.gripper_range[0]) / max_iters
 
         contact_count = 0
         for _ in range(max_iters):
             if target_obj_id is not None:
-                contacts = p.getContactPoints(bodyA=self.robot_id, bodyB=target_obj_id)
-                if len(contacts) > 0:
+                cts = p.getContactPoints(bodyA=self.robot_id, bodyB=target_obj_id) + p.getContactPoints(bodyA=target_obj_id, bodyB=self.robot_id)
+                finger_cts = [c for c in cts if (c[3] if c[1] == self.robot_id else c[4]) in pad_idxs]
+                if len(finger_cts) > 0:
                     contact_count += 1
                     if contact_count >= 2:
-                        # Extra steps to build firm clamping force
+                        self.clamped_grip_val = max(self.gripper_range[0], grip_val - 0.005)
+                        self.move_gripper(self.clamped_grip_val, force=500.0)
                         for _ in range(5):
                             p.stepSimulation()
                         return True
             if grip_val <= self.gripper_range[0]:
                 break
             grip_val -= step_size
-            self.move_gripper(grip_val)
-            for _ in range(3):
+            self.move_gripper(grip_val, force=200.0)
+            for _ in range(2):
                 p.stepSimulation()
 
-
-        if target_obj_id is not None:
-            contacts = p.getContactPoints(bodyA=self.robot_id, bodyB=target_obj_id)
-            return len(contacts) > 0
+        self.clamped_grip_val = max(self.gripper_range[0], grip_val - 0.005)
         return True
+
+    def is_object_grasped(self, obj_name: str, min_contacts: int = 2) -> bool:
+        """
+        Kiểm tra xem vật thể (obj_name) có đang thực sự được kẹp giữa 2 ngón kẹp của gripper hay không.
+        Yêu cầu có tiếp xúc (contact) ở CẢ 2 PHÍA (bên Trái + bên Phải).
+        """
+        obj_id = self.object_ids.get(obj_name)
+        if obj_id is None:
+            return False
+
+        finger_links = [
+            "sus2f_pad_l_link", "sus2f_pad_r_link",
+            "sus2f_passive_pad_l_link", "sus2f_passive_pad_r_link",
+            "sus2f_finger_l_link", "sus2f_finger_r_link",
+            "robotiq_85_left_finger_pad", "robotiq_85_right_finger_pad",
+            "left_inner_finger_pad", "right_inner_finger_pad",
+        ]
+
+        inv_map = {v: k for k, v in self._link_name_to_index.items()}
+        contacts = p.getContactPoints(bodyA=self.robot_id, bodyB=obj_id) + p.getContactPoints(bodyA=obj_id, bodyB=self.robot_id)
+        contacted_fingers = set()
+        for c in contacts:
+            r_link_idx = c[3] if c[1] == self.robot_id else c[4]
+            if r_link_idx in inv_map:
+                link_name = inv_map[r_link_idx]
+                if link_name in finger_links:
+                    contacted_fingers.add(link_name)
+
+        has_left = any("_l_" in name or "left" in name for name in contacted_fingers)
+        has_right = any("_r_" in name or "right" in name for name in contacted_fingers)
+        return bool(has_left and has_right)
 
     def get_ee_pose(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return end-effector world position and quaternion orientation."""
@@ -567,10 +654,18 @@ class ManipulationEnv:
             action_arr = np.asarray(action, dtype=np.float32)
             if len(action_arr) == 7:
                 # EE Delta Action: [dx, dy, dz, droll, dpitch, dyaw, gripper]
-                dx, dy, dz, _, _, _, gripper_cmd = action_arr
-                ee_pos, _ = self.get_ee_pose()
+                dx, dy, dz, droll, dpitch, dyaw, gripper_cmd = action_arr
+                ee_pos, ee_orn = self.get_ee_pose()
                 target_pos = (ee_pos + np.array([dx, dy, dz])).tolist()
-                target_orn = p.getQuaternionFromEuler(self.fixed_ee_euler)
+
+                # Áp dụng orientation delta nếu droll, dpitch, dyaw khác 0
+                if droll == 0.0 and dpitch == 0.0 and dyaw == 0.0:
+                    target_orn = p.getQuaternionFromEuler(self.fixed_ee_euler)
+                else:
+                    curr_euler = p.getEulerFromQuaternion(ee_orn)
+                    target_euler = [curr_euler[0] + droll, curr_euler[1] + dpitch, curr_euler[2] + dyaw]
+                    target_orn = p.getQuaternionFromEuler(target_euler)
+
                 self.move_arm_ik_absolute(target_pos, target_orn)
 
                 if gripper_cmd > 0.02:
@@ -580,8 +675,7 @@ class ManipulationEnv:
                     if not self.has_closed_gripper:
                         self.has_closed_gripper = self.gripper_close()
                     else:
-                        self.move_gripper(0.005)
-
+                        self.move_gripper(getattr(self, "clamped_grip_val", self.gripper_range[0]), force=500.0)
 
             elif len(action_arr) in (6, 7):
                 # Joint angles direct control: [q0..q5, (gripper)]
@@ -599,7 +693,6 @@ class ManipulationEnv:
             p.stepSimulation()
             if self.gui:
                 time.sleep(1.0 / 240.0)
-
 
         self.current_step += 1
         obs = self._get_obs()
@@ -643,18 +736,15 @@ class ManipulationEnv:
             "images": images,
             "instruction": self.current_instruction,
             "task_en": self.current_instruction,
-            "task_zh": getattr(self, "current_instruction_zh", self.current_instruction),
         }
 
-        # Expose individual camera image keys by name and by camera index
+        # Expose individual camera image keys by camera name and by camera index
         for cam_name, img in images.items():
             obs[f"image_{cam_name}"] = img
 
         img_list = list(images.values())
-        if len(img_list) >= 1:
-            obs["image_camera1"] = img_list[0]
-            obs["image_camera2"] = img_list[1] if len(img_list) >= 2 else img_list[0].copy()
-            obs["image_camera3"] = img_list[2] if len(img_list) >= 3 else (img_list[1].copy() if len(img_list) >= 2 else img_list[0].copy())
+        for i, img in enumerate(img_list, start=1):
+            obs[f"image_camera{i}"] = img
 
         return obs
 
@@ -722,7 +812,6 @@ class ManipulationEnv:
         cam_target = pos + forward * 0.5
         return p.computeViewMatrix(cam_eye.tolist(), cam_target.tolist(), up.tolist())
 
-
     # -------------------------------------------------------- success & failure ----
     def _check_success(self) -> bool:
         cond = self.cfg.success_condition
@@ -751,6 +840,12 @@ class ManipulationEnv:
                 b, _ = p.getBasePositionAndOrientation(tgt_id)
                 thresh = cond.threshold if cond.threshold is not None else 0.05
                 return bool(np.linalg.norm(np.array(a) - np.array(b)) < thresh)
+
+        else:
+            raise ValueError(
+                f"Không hỗ trợ success_condition.type='{cond.type}'. "
+                "Các loại hợp lệ: 'object_inside', 'object_height_above', 'height_above', 'distance_below'."
+            )
 
         return False
 

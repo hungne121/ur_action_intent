@@ -4,6 +4,7 @@ robot:
   urdf: assets/robot/ur3e_susgrip.urdf
   base_position: [0, 0, 0.62]
   fixed_base: true
+  gripper_finger_offset: 0.138
 
 objects:
   - name: cube
@@ -37,7 +38,7 @@ cameras:
 success_condition:
   type: object_height_above
   object: cube
-  threshold: 0.72
+  threshold: 0.80
 
 
 episode:
