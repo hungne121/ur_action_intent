@@ -1,0 +1,62 @@
+task_name: pick_cube_to_bowl
+
+robot:
+  urdf: assets/robot/ur3e_susgrip.urdf
+  base_position: [0, 0, 0.62]
+  fixed_base: true
+
+objects:
+  - name: cube
+    urdf: assets/objects/cube.urdf
+    fixed_base: false
+    spawn_region:
+      x: [0.32, 0.42]
+      y: [-0.10, 0.10]
+      z: [0.65, 0.65]
+      randomize_yaw: true
+
+  - name: bowl
+    urdf: assets/objects/bowl.urdf
+    fixed_base: false
+    spawn_region:
+      x: [0.35, 0.40]
+      y: [0.15, 0.25]
+      z: [0.63, 0.63]
+      randomize_yaw: false
+
+
+cameras:
+  - name: camera1
+    position: [0.90, -0.55, 1.05]
+    target: [0.38, 0.00, 0.78]
+    fov: 55
+    width: 224
+    height: 224
+  - name: camera2
+    position: [0.60, 0.00, 1.45]
+    target: [0.38, 0.00, 0.78]
+    fov: 50
+    width: 224
+    height: 224
+  - name: camera3
+    attach_to_link: "tool0"
+    fov: 60
+    width: 224
+    height: 224
+
+
+success_condition:
+  type: object_inside
+  object: cube
+  target: bowl
+  threshold: 0.08
+
+episode:
+  max_steps: 300
+  control_hz: 20
+
+# nhiều câu instruction khác nhau cho CÙNG 1 task -> tăng đa dạng ngôn ngữ khi train
+language_instructions:
+  - "pick up the cube and place it in the bowl"
+  - "put the block into the bowl"
+  - "move the cube to the bowl"

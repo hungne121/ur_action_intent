@@ -191,10 +191,10 @@ for t in range(time_length):
         # but works correctly for full 3D arm motion.
         rot_mat = np.array(pybullet.getMatrixFromQuaternion(ee_orn)).reshape(3, 3)
 
-        forward = rot_mat[:, 0]   # cameraEyePosition → cameraTargetPosition direction
+        forward = rot_mat[:, 2]   # cameraEyePosition → cameraTargetPosition direction
         up      = rot_mat[:, 2]   # cameraUpVector — changes with arm posture automatically
 
-        cam_eye    = ee_pos + forward * 0.02 + rot_mat[:, 2] * 0.08   # camera origin: 2cm along approach axis
+        cam_eye    = ee_pos + forward * 0.06 + rot_mat[:, 1] * 0.05   # camera origin: 2cm along approach axis
         cam_target = ee_pos + forward * 0.5    # look 50cm ahead along approach axis
 
         # Compute view matrix — all three vectors are pose-dependent

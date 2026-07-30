@@ -1,0 +1,49 @@
+task_name: lift_cube
+
+robot:
+  urdf: assets/robot/ur3e_susgrip.urdf
+  base_position: [0, 0, 0.62]
+  fixed_base: true
+
+objects:
+  - name: cube
+    urdf: assets/objects/cube.urdf
+    fixed_base: false
+    spawn_region:
+      x: [0.32, 0.42]
+      y: [-0.10, 0.10]
+      z: [0.65, 0.65]
+      randomize_yaw: true
+
+cameras:
+  - name: camera1
+    position: [0.90, -0.55, 1.05]
+    target: [0.38, 0.00, 0.78]
+    fov: 55
+    width: 224
+    height: 224
+  - name: camera2
+    position: [0.60, 0.00, 1.45]
+    target: [0.38, 0.00, 0.78]
+    fov: 50
+    width: 224
+    height: 224
+  - name: camera3
+    attach_to_link: "tool0"
+    fov: 60
+    width: 224
+    height: 224
+
+success_condition:
+  type: object_height_above
+  object: cube
+  threshold: 0.72
+
+
+episode:
+  max_steps: 150
+  control_hz: 20
+
+language_instructions:
+  - "pick up the cube"
+  - "lift the block off the table"

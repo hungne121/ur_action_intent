@@ -1,0 +1,336 @@
+<?xml version="1.0"?>
+<!--
+  bowl.urdf (auto-generated bởi generate_bowl.py)
+  Bowl dạng compound shape: 1 đáy (cylinder) + 20 mảnh tường (box)
+  ghép vòng tròn, tạo thành hình lõm thật sự -> vật thể có thể rơi vào bên trong
+  khi mô phỏng va chạm trong pybullet.
+
+  Kích thước: bán kính 0.08m, cao 0.05m.
+  Muốn đổi kích thước -> sửa tham số ở đầu generate_bowl.py rồi chạy lại script.
+-->
+<robot name="bowl">
+  <link name="bowl_link">
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0003" ixy="0.0" ixz="0.0"
+               iyy="0.0003" iyz="0.0"
+               izz="0.0004"/>
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 0.0030" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0800" length="0.0060"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0030" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.0800" length="0.0060"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0800 0.0000 0.0310" rpy="0 0 1.5708"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0800 0.0000 0.0310" rpy="0 0 1.5708"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0761 0.0247 0.0310" rpy="0 0 1.8850"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0761 0.0247 0.0310" rpy="0 0 1.8850"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0647 0.0470 0.0310" rpy="0 0 2.1991"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0647 0.0470 0.0310" rpy="0 0 2.1991"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0470 0.0647 0.0310" rpy="0 0 2.5133"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0470 0.0647 0.0310" rpy="0 0 2.5133"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0247 0.0761 0.0310" rpy="0 0 2.8274"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0247 0.0761 0.0310" rpy="0 0 2.8274"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0000 0.0800 0.0310" rpy="0 0 3.1416"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0000 0.0800 0.0310" rpy="0 0 3.1416"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0247 0.0761 0.0310" rpy="0 0 3.4558"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0247 0.0761 0.0310" rpy="0 0 3.4558"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0470 0.0647 0.0310" rpy="0 0 3.7699"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0470 0.0647 0.0310" rpy="0 0 3.7699"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0647 0.0470 0.0310" rpy="0 0 4.0841"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0647 0.0470 0.0310" rpy="0 0 4.0841"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0761 0.0247 0.0310" rpy="0 0 4.3982"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0761 0.0247 0.0310" rpy="0 0 4.3982"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0800 0.0000 0.0310" rpy="0 0 4.7124"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0800 0.0000 0.0310" rpy="0 0 4.7124"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0761 -0.0247 0.0310" rpy="0 0 5.0265"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0761 -0.0247 0.0310" rpy="0 0 5.0265"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0647 -0.0470 0.0310" rpy="0 0 5.3407"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0647 -0.0470 0.0310" rpy="0 0 5.3407"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0470 -0.0647 0.0310" rpy="0 0 5.6549"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0470 -0.0647 0.0310" rpy="0 0 5.6549"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0247 -0.0761 0.0310" rpy="0 0 5.9690"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0247 -0.0761 0.0310" rpy="0 0 5.9690"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="-0.0000 -0.0800 0.0310" rpy="0 0 6.2832"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0000 -0.0800 0.0310" rpy="0 0 6.2832"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0247 -0.0761 0.0310" rpy="0 0 6.5973"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0247 -0.0761 0.0310" rpy="0 0 6.5973"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0470 -0.0647 0.0310" rpy="0 0 6.9115"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0470 -0.0647 0.0310" rpy="0 0 6.9115"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0647 -0.0470 0.0310" rpy="0 0 7.2257"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0647 -0.0470 0.0310" rpy="0 0 7.2257"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0.0761 -0.0247 0.0310" rpy="0 0 7.5398"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+      <material name="bowl_color">
+        <color rgba="0.75 0.75 0.78 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0761 -0.0247 0.0310" rpy="0 0 7.5398"/>
+      <geometry>
+        <box size="0.0060 0.0288 0.0500"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

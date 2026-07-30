@@ -69,11 +69,11 @@ def render_eye_in_hand(robot_id, eef_link_id, image_size, fov=60, gui=False):
 
     # 3×3 rotation matrix — each column is a local axis in world frame
     rot_mat = np.array(p.getMatrixFromQuaternion(ee_orn)).reshape(3, 3)
-    forward = rot_mat[:, 0]   # local X  → looking direction
+    forward = rot_mat[:, 2]   # local X  → looking direction
     up      = rot_mat[:, 2]   # local Z  → camera up (pose-dependent)
 
     # Offset cam_eye slightly to avoid clipping into the gripper mesh
-    cam_eye    = ee_pos + forward * 0.02 + rot_mat[:, 2] * 0.08
+    cam_eye    = ee_pos + forward * 0.04 + rot_mat[:, 1] * 0.1
     cam_target = ee_pos + forward * 0.5
 
     view_matrix = p.computeViewMatrix(

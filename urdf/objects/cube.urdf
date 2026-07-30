@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+  cube.urdf
+  Khối hộp đơn giản dùng để test pick-and-place trong pybullet.
+  Kích thước mặc định: 5cm x 5cm x 5cm, khối lượng 0.1kg.
+  Sửa các giá trị <size> và <mass> bên dưới nếu muốn đổi kích thước/khối lượng.
+-->
+<robot name="cube">
+  <link name="cube_link">
+
+    <inertial>
+      <!-- Công thức quán tính cho hộp đặc: I = m/12 * (h^2 + d^2) -->
+      <mass value="0.1"/>
+      <inertia
+        ixx="4.1667e-5" ixy="0.0" ixz="0.0"
+        iyy="4.1667e-5" iyz="0.0"
+        izz="4.1667e-5"/>
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.05 0.05"/>
+      </geometry>
+      <material name="orange">
+        <color rgba="0.9 0.45 0.1 1.0"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.05 0.05"/>
+      </geometry>
+    </collision>
+
+  </link>
+</robot>
