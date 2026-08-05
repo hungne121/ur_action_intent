@@ -41,7 +41,8 @@ python scripts/collect_data.py --task lift_cube --episodes 50 --no-gui
 ### 2.2 Training Lerobot
 
 ```bash
-lerobot-train \                                                                 --dataset.repo_id=local/lift_cube_20260805_162926 \
+lerobot-train \
+  --dataset.repo_id=local/lift_cube_20260805_162926 \
   --dataset.root=./datasets/lift_cube_20260805_162926 \
   --policy.path=lerobot/smolvla_base \
   --output_dir=outputs1/train/smolvla_ur3_liftcube \
