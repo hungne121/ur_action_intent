@@ -1,6 +1,6 @@
 # ur_action_intent
 
-Mô phỏng robot arm UR3e / UR5 tích hợp tay kẹp SusGrip 2F / Robotiq 85 trong PyBullet, phục vụ huấn luyện và đánh giá chính sách hành động (action policy) SmolVLA / VLA.
+Mô phỏng robot arm UR3e tích hợp tay kẹp SusGrip 2F trong PyBullet, phục vụ huấn luyện và đánh giá chính sách hành động (action policy) SmolVLA / VLA.
 
 ---
 
