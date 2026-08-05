@@ -4,25 +4,26 @@ robot:
   urdf: assets/robot/ur3e_susgrip.urdf
   base_position: [0, 0, 0.62]
   fixed_base: true
+  gripper_finger_offset: 0.138
 
 objects:
   - name: cube
     urdf: assets/objects/cube.urdf
     fixed_base: false
     spawn_region:
-      x: [0.32, 0.42]
-      y: [-0.10, 0.10]
+      x: [0.28, 0.44]
+      y: [-0.22, 0.22]
       z: [0.65, 0.65]
       randomize_yaw: true
 
   - name: bowl
     urdf: assets/objects/bowl.urdf
-    fixed_base: false
+    fixed_base: true
     spawn_region:
-      x: [0.35, 0.40]
-      y: [0.15, 0.25]
+      x: [0.28, 0.44]
+      y: [-0.22, 0.22]
       z: [0.63, 0.63]
-      randomize_yaw: false
+      randomize_yaw: true
 
 
 cameras:
@@ -60,3 +61,8 @@ language_instructions:
   - "pick up the cube and place it in the bowl"
   - "put the block into the bowl"
   - "move the cube to the bowl"
+  - "grab the orange cube and drop it inside the bowl"
+  - "place the cube into the container"
+  - "take the block off the table and put it in the bowl"
+  - "pick the cube and drop it in the bowl"
+  - "transfer the cube to the bowl"

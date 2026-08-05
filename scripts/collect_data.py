@@ -14,6 +14,7 @@ import argparse
 import shutil
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -112,7 +113,8 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
     approach_height = obj_pos[2] + gripper_offset + 0.10
     pregrasp_height = obj_pos[2] + gripper_offset + 0.04
     grasp_height = obj_pos[2] + gripper_offset
-    lift_height = obj_pos[2] + gripper_offset + 0.22
+    table_z = 0.65
+    lift_height = table_z + gripper_offset + 0.22
 
     open_gripper = float(env.gripper_range[1])
     close_gripper = float(env.gripper_range[0])
@@ -187,8 +189,14 @@ def phase_done(env: ManipulationEnv, phase: str, step_count: int) -> bool:
     elif phase == "hold_close":
         return step_count >= 8
     elif phase == "lift":
-        return (env.is_success() and step_count >= 15) or step_count >= 60
+        lift_target = np.array([ee_pos[0], ee_pos[1], 0.65 + gripper_offset + 0.22], dtype=np.float32)
+        return np.linalg.norm(ee_pos - lift_target) < 0.01 or step_count >= 25
     elif phase == "move_to_target":
+        target_name = "bowl" if "bowl" in env.object_ids else None
+        if target_name and target_name in env.object_ids:
+            tpos, _ = p.getBasePositionAndOrientation(env.object_ids[target_name])
+            tgt_xy = np.array(tpos[:2], dtype=np.float32)
+            return np.linalg.norm(ee_pos[:2] - tgt_xy) < 0.02 or step_count >= 40
         return step_count >= 40
     elif phase == "place":
         return env.is_success() or step_count >= 30
@@ -267,7 +275,7 @@ def collect_dataset(
                 if current_phase in grasp_check_phases:
                     if not env.is_object_grasped(obj_name):
                         lost_grasp_count += 1
-                        if lost_grasp_count > 10:
+                        if lost_grasp_count > 20:
                             grasp_maintained = False
                     else:
                         lost_grasp_count = 0
@@ -329,8 +337,8 @@ def main():
     parser.add_argument("--preview", action="store_true", help="Mở giao diện xem trước GUI (không ghi dữ liệu)")
     parser.add_argument("--preview-seconds", type=float, default=20.0, help="Thời gian xem trước (giây)")
     parser.add_argument("--episodes", type=int, default=10, help="Số episode thành công cần thu thập")
-    parser.add_argument("--root", default=None, help="Đường dẫn thư mục lưu LeRobotDataset (Mặc định: ./lerobot_dataset_<task>)")
-    parser.add_argument("--repo-id", default=None, help="Repo ID LeRobot (Mặc định: local/<task>)")
+    parser.add_argument("--root", default=None, help="Đường dẫn thư mục lưu LeRobotDataset (Mặc định: ./datasets/<task>_<YYYYMMDD_HHMMSS>)")
+    parser.add_argument("--repo-id", default=None, help="Repo ID LeRobot (Mặc định: local/<task>_<YYYYMMDD_HHMMSS>)")
     parser.add_argument("--gui", action="store_true", default=True, help="Hiển thị cửa sổ GUI PyBullet")
     parser.add_argument("--no-gui", dest="gui", action="store_false", help="Chạy ẩn (HEADLESS - Tốc độ cao)")
     parser.add_argument("--seed", type=int, default=42, help="Seed ngẫu nhiên")
@@ -340,8 +348,9 @@ def main():
         preview_environment(task_name=args.task, seed=args.seed, seconds=args.preview_seconds)
         return
 
-    root = args.root if args.root else f"./lerobot_dataset_{args.task}"
-    repo_id = args.repo_id if args.repo_id else f"local/{args.task}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    root = args.root if args.root else f"./datasets/{args.task}_{timestamp}"
+    repo_id = args.repo_id if args.repo_id else f"local/{args.task}_{timestamp}"
 
     collect_dataset(
         task_name=args.task,

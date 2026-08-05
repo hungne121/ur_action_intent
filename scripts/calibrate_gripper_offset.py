@@ -14,8 +14,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 try:
-    from scripts.scene_config import TaskConfig
-    from scripts.base_env import ManipulationEnv
+    from envs.scene_config import TaskConfig
+    from envs.base_env import ManipulationEnv
 except ImportError:
     from scene_config import TaskConfig
     from base_env import ManipulationEnv
