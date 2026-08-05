@@ -68,6 +68,15 @@ class EpisodeSpec:
 
 
 @dataclass
+class HumanMotionSpec:
+    motion_dir: str
+    origin: list = field(default_factory=lambda: [0.38, -0.65, 0.0])
+    scale: float = 0.01
+    target_joint: str = "R_Wrist"
+    joint_radius: float = 0.035
+
+
+@dataclass
 class TaskConfig:
     task_name: str
     robot: RobotSpec
@@ -75,6 +84,7 @@ class TaskConfig:
     cameras: list  # List[CameraSpec]
     success_condition: SuccessCondition
     episode: EpisodeSpec
+    human_motion: Optional[HumanMotionSpec] = None
     language_instructions: list = field(default_factory=list)  # nhiều câu instruction khác nhau cho cùng task
 
     @staticmethod
@@ -92,6 +102,7 @@ class TaskConfig:
         cameras = [CameraSpec(**c) for c in raw.get("cameras", [])]
         success = SuccessCondition(**raw["success_condition"])
         episode = EpisodeSpec(**raw.get("episode", {}))
+        human_motion = HumanMotionSpec(**raw["human_motion"]) if "human_motion" in raw else None
 
         return TaskConfig(
             task_name=raw["task_name"],
@@ -100,5 +111,6 @@ class TaskConfig:
             cameras=cameras,
             success_condition=success,
             episode=episode,
+            human_motion=human_motion,
             language_instructions=raw.get("language_instructions", []),
         )

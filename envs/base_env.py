@@ -27,11 +27,13 @@ try:
     from envs.urdf_utils import _resolve_urdf_path, ROS_SETUP_PATHS
     from envs.gripper import GripperController, HIGH_FRICTION_LINKS
     from envs.camera import CameraManager
+    from envs.human_motion_player import HumanMotionPlayer
 except ImportError:
     from scene_config import TaskConfig
     from urdf_utils import _resolve_urdf_path, ROS_SETUP_PATHS
     from gripper import GripperController, HIGH_FRICTION_LINKS
     from camera import CameraManager
+    from human_motion_player import HumanMotionPlayer
 
 
 class ManipulationEnv:
@@ -64,6 +66,7 @@ class ManipulationEnv:
         self.current_step = 0
         self.current_instruction = ""
         self.fixed_ee_euler = [np.pi, 0.0, -np.pi / 2.0]
+        self.human_player: Optional[HumanMotionPlayer] = None
 
         self.reset()
 
@@ -99,6 +102,7 @@ class ManipulationEnv:
 
         self.set_home_pose()
         self._spawn_objects()
+        self._setup_human_motion()
         self._setup_debug_camera()
 
         self.current_step = 0
@@ -345,6 +349,34 @@ class ManipulationEnv:
                 frictionAnchor=1,
             )
 
+    def _setup_human_motion(self):
+        """Khởi tạo mô hình chuyển động người từ thư mục được chỉ định trong TaskConfig."""
+        if not self.cfg.human_motion:
+            self.human_player = None
+            return
+
+        spec = self.cfg.human_motion
+        motion_dir_path = _PROJECT_ROOT / spec.motion_dir
+        if not motion_dir_path.exists():
+            motion_dir_path = Path(spec.motion_dir)
+
+        if motion_dir_path.is_dir():
+            fbx_files = sorted(list(motion_dir_path.glob("*.fbx")) + list(motion_dir_path.glob("*.gltf")))
+            if not fbx_files:
+                raise FileNotFoundError(f"Không tìm thấy file .fbx hay .gltf nào trong thư mục: {motion_dir_path}")
+            motion_file = self.rng.choice(fbx_files)
+        elif motion_dir_path.is_file():
+            motion_file = motion_dir_path
+        else:
+            raise FileNotFoundError(f"Đường dẫn chuyển động người không tồn tại: {spec.motion_dir}")
+
+        self.human_player = HumanMotionPlayer(
+            motion_file_path=str(motion_file),
+            scale=spec.scale,
+            origin_offset=tuple(spec.origin),
+        )
+        self.human_player.spawn_in_pybullet(joint_radius=spec.joint_radius)
+
     def _setup_debug_camera(self):
         self.camera_manager.setup_debug_camera()
 
@@ -483,6 +515,8 @@ class ManipulationEnv:
 
         substeps = max(1, int(240 / getattr(self.cfg.episode, "control_hz", 20)))
         for _ in range(substeps):
+            if self.human_player is not None:
+                self.human_player.update(self.current_step)
             p.stepSimulation()
             if self.gui:
                 time.sleep(1.0 / 240.0)
@@ -531,6 +565,15 @@ class ManipulationEnv:
             "task_en": self.current_instruction,
         }
 
+        if self.human_player is not None:
+            target_j = getattr(self.cfg.human_motion, "target_joint", "R_Wrist")
+            try:
+                human_hand_pos = self.human_player.get_joint_position(target_j, self.current_step)
+                obs["human_hand_pos"] = human_hand_pos
+                obs["object_positions"]["human_hand"] = human_hand_pos
+            except KeyError:
+                pass
+
         # Expose individual camera image keys by camera name and by camera index
         for cam_name, img in images.items():
             obs[f"image_{cam_name}"] = img
@@ -576,12 +619,19 @@ class ManipulationEnv:
 
         elif cond.type == "distance_below":
             obj_id = self.object_ids.get(cond.object)
-            tgt_id = self.object_ids.get(cond.target)
-            if obj_id is not None and tgt_id is not None:
+            if obj_id is not None:
                 a, _ = p.getBasePositionAndOrientation(obj_id)
-                b, _ = p.getBasePositionAndOrientation(tgt_id)
-                thresh = cond.threshold if cond.threshold is not None else 0.05
-                return bool(np.linalg.norm(np.array(a) - np.array(b)) < thresh)
+                b = None
+                if cond.target in self.object_ids:
+                    tgt_pos, _ = p.getBasePositionAndOrientation(self.object_ids[cond.target])
+                    b = np.array(tgt_pos, dtype=np.float32)
+                elif cond.target == "human_hand" and self.human_player is not None:
+                    target_j = getattr(self.cfg.human_motion, "target_joint", "R_Wrist")
+                    b = self.human_player.get_joint_position(target_j, self.current_step)
+
+                if b is not None:
+                    thresh = cond.threshold if cond.threshold is not None else 0.08
+                    return bool(np.linalg.norm(np.array(a) - np.array(b)) < thresh)
 
         else:
             raise ValueError(

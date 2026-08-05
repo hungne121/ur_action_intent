@@ -38,33 +38,20 @@ python scripts/collect_data.py --task lift_cube --episodes 50 --no-gui
 
 ---
 
-### 2.2 Thu thập dữ liệu LeRobot Dataset & Camera Eye-In-Hand (`scripts/data_collect.py`)
-Script thu thập dữ liệu chuyên sâu xuất ra định dạng **LeRobotDataset**, hỗ trợ 3 camera bao gồm camera gắn trên đầu tay robot (Eye-In-Hand).
+### 2.2 Training Lerobot
 
 ```bash
-# Preview giao diện GUI và 3 camera (Không lưu dữ liệu)
-python scripts/data_collect.py --preview
+lerobot-train \                                                                 --dataset.repo_id=local/lift_cube_20260805_162926 \
+  --dataset.root=./datasets/lift_cube_20260805_162926 \
+  --policy.path=lerobot/smolvla_base \
+  --output_dir=outputs1/train/smolvla_ur3_liftcube \
+  --job_name=smolvla_ur5_pick_cube \
+  --policy.device=cuda \
+  --policy.push_to_hub=false \
+  --steps=10000 \
+  --batch_size=32
 
-# Preview trong 30 giây
-python scripts/data_collect.py --preview --preview-seconds 30.0
-
-# Thu thập 100 episode HEADLESS và lưu vào thư mục dataset
-python scripts/data_collect.py --episodes 100 --root ./lerobot_dataset_eye_in_hand --no-gui
-
-# Thu thập 50 episode với giao diện GUI
-python scripts/data_collect.py --episodes 50 --root ./lerobot_dataset_eye_in_hand --gui
 ```
-
-**Các tham số (CLI Arguments):**
-| Tham số | Kiểu dữ liệu | Mặc định | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `--preview` | `flag` | `False` | Mở giao diện xem trước chuyển động robot & camera, không ghi dữ liệu. |
-| `--preview-seconds` | `float` | `20.0` | Thời gian xem trước (tính bằng giây). |
-| `--episodes` | `int` | `100` | Số lượng episode thành công cần thu thập vào dataset. |
-| `--repo-id` | `str` | `local/ur5_pick_cube_eye_in_hand` | Định danh tên Dataset của LeRobot. |
-| `--root` | `str` | `./lerobot_dataset_eye_in_hand` | Đường dẫn lưu thư mục LeRobotDataset. |
-| `--no-gui` | `flag` | `False` | Chạy ẩn không mở cửa sổ PyBullet. |
-| `--seed` | `int` | `42` | Seed ngẫu nhiên cho môi trường và khởi tạo bài toán. |
 
 ---
 

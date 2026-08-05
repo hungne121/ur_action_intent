@@ -1,0 +1,63 @@
+task_name: handover_cube_to_human
+
+robot:
+  urdf: assets/robot/ur3e_susgrip.urdf
+  base_position: [0, 0, 0.62]
+  fixed_base: true
+  gripper_finger_offset: 0.138
+
+objects:
+  - name: cube
+    urdf: assets/objects/cube.urdf
+    fixed_base: false
+    spawn_region:
+      x: [0.28, 0.44]
+      y: [-0.22, 0.22]
+      z: [0.65, 0.65]
+      randomize_yaw: true
+
+human_motion:
+  motion_dir: "hy_motion/handover01"
+  origin: [0.38, -0.45, 0.0]
+  scale: 0.01
+  target_joint: "R_Wrist"
+  joint_radius: 0.035
+
+cameras:
+  - name: camera1
+    position: [0.90, -0.55, 1.05]
+    target: [0.38, 0.00, 0.78]
+    fov: 55
+    width: 224
+    height: 224
+  - name: camera2
+    position: [0.60, 0.00, 1.45]
+    target: [0.38, 0.00, 0.78]
+    fov: 50
+    width: 224
+    height: 224
+  - name: camera3
+    attach_to_link: "tool0"
+    fov: 60
+    width: 224
+    height: 224
+
+success_condition:
+  type: distance_below
+  object: cube
+  target: human_hand
+  threshold: 0.08
+
+episode:
+  max_steps: 300
+  control_hz: 20
+
+language_instructions:
+  - "hand over the cube to the human"
+  - "pick up the cube and give it to the person"
+  - "pass the block to the person's hand"
+  - "deliver the orange cube to the human hand"
+  - "pick the cube and place it in the person's hand"
+  - "transfer the cube to the human"
+  - "give the cube to the human waiting by the table"
+  - "hand the orange block to the person"

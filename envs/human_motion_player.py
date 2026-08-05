@@ -84,12 +84,42 @@ class HumanMotionPlayer:
         if gltf_out.exists():
             return gltf_out
 
-        # Tự động dùng assimp CLI để convert FBX sang GLTF
-        assimp_bin = os.path.expanduser("~/miniforge3/envs/lerobot/bin/assimp")
-        if not os.path.exists(assimp_bin):
-            # Fallback search system assimp
-            assimp_bin = "assimp"
+        # Tự động dùng ctypes libassimp để convert FBX sang GLTF
+        try:
+            import ctypes
+            import sys
+            lib_path = None
+            for p_cand in [
+                os.path.join(sys.prefix, "lib", "libassimp.so"),
+                os.path.expanduser("~/miniforge3/envs/ur_bullet/lib/libassimp.so"),
+                "libassimp.so",
+            ]:
+                if os.path.exists(p_cand):
+                    lib_path = p_cand
+                    break
+            if lib_path is None:
+                lib_path = "libassimp.so"
 
+            lib = ctypes.CDLL(lib_path)
+            lib.aiImportFile.argtypes = [ctypes.c_char_p, ctypes.c_uint]
+            lib.aiImportFile.restype = ctypes.c_void_p
+            lib.aiExportScene.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+            lib.aiExportScene.restype = ctypes.c_int
+            lib.aiReleaseImport.argtypes = [ctypes.c_void_p]
+            lib.aiReleaseImport.restype = None
+
+            scene = lib.aiImportFile(str(path).encode("utf-8"), 0)
+            if scene:
+                ret = lib.aiExportScene(scene, b"gltf2", str(gltf_out).encode("utf-8"), 0)
+                lib.aiReleaseImport(scene)
+                if ret == 0 and gltf_out.exists():
+                    print(f"[INFO] Convert thành công FBX -> GLTF qua libassimp: {gltf_out.name}")
+                    return gltf_out
+        except Exception as e:
+            print(f"[WARN] Libassimp conversion via ctypes failed ({e}), attempting assimp CLI...")
+
+        # Fallback search system assimp
+        assimp_bin = shutil.which("assimp") or "assimp"
         cmd = [assimp_bin, "export", str(path), str(gltf_out)]
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:

@@ -106,6 +106,13 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
     if target_name and target_name in env.object_ids:
         tpos, _ = p.getBasePositionAndOrientation(env.object_ids[target_name])
         tgt_pos = np.array(tpos, dtype=np.float32)
+    elif env.cfg.success_condition.target == "human_hand" and env.human_player is not None:
+        target_j = getattr(env.cfg.human_motion, "target_joint", "R_Wrist")
+        try:
+            hpos = env.human_player.get_joint_position(target_j, env.current_step)
+            tgt_pos = np.array(hpos, dtype=np.float32)
+        except KeyError:
+            tgt_pos = None
 
     gripper_offset = getattr(env.cfg.robot, "gripper_finger_offset", 0.080)
 
@@ -139,16 +146,24 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
         gripper = close_gripper
     elif phase == "move_to_target":
         if tgt_pos is not None:
-            target = np.array([tgt_pos[0], tgt_pos[1], lift_height], dtype=np.float32)
+            if env.cfg.success_condition.target == "human_hand":
+                target = np.array([tgt_pos[0], tgt_pos[1], tgt_pos[2] + gripper_offset - 0.02], dtype=np.float32)
+            else:
+                target = np.array([tgt_pos[0], tgt_pos[1], lift_height], dtype=np.float32)
         else:
             target = np.array([ee_pos[0], ee_pos[1], lift_height], dtype=np.float32)
         gripper = close_gripper
     elif phase == "place":
         if tgt_pos is not None:
-            target = np.array([tgt_pos[0], tgt_pos[1], tgt_pos[2] + gripper_offset + 0.08], dtype=np.float32)
+            if env.cfg.success_condition.target == "human_hand":
+                target = np.array([tgt_pos[0], tgt_pos[1], tgt_pos[2] + gripper_offset - 0.02], dtype=np.float32)
+                gripper = open_gripper
+            else:
+                target = np.array([tgt_pos[0], tgt_pos[1], tgt_pos[2] + gripper_offset + 0.08], dtype=np.float32)
+                gripper = open_gripper
         else:
             target = ee_pos.copy()
-        gripper = open_gripper
+            gripper = open_gripper
     else:
         target = ee_pos.copy()
         gripper = open_gripper
@@ -197,6 +212,13 @@ def phase_done(env: ManipulationEnv, phase: str, step_count: int) -> bool:
             tpos, _ = p.getBasePositionAndOrientation(env.object_ids[target_name])
             tgt_xy = np.array(tpos[:2], dtype=np.float32)
             return np.linalg.norm(ee_pos[:2] - tgt_xy) < 0.02 or step_count >= 40
+        elif env.cfg.success_condition.target == "human_hand" and env.human_player is not None:
+            target_j = getattr(env.cfg.human_motion, "target_joint", "R_Wrist")
+            try:
+                hpos = env.human_player.get_joint_position(target_j, env.current_step)
+                return np.linalg.norm(ee_pos - hpos) < 0.06 or step_count >= 40
+            except KeyError:
+                pass
         return step_count >= 40
     elif phase == "place":
         return env.is_success() or step_count >= 30
@@ -235,8 +257,9 @@ def collect_dataset(
     dropped_count = 0
 
     has_bowl = "bowl" in [obj.name for obj in task_cfg.objects]
+    has_human_target = (task_cfg.success_condition.target == "human_hand") or (task_cfg.human_motion is not None)
     phases = ["approach", "pre_descend", "descend", "close", "hold_close", "lift"]
-    if has_bowl:
+    if has_bowl or has_human_target:
         phases.extend(["move_to_target", "place"])
 
     grasp_check_phases = {"lift", "move_to_target"}
