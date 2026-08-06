@@ -4,7 +4,7 @@ Mô phỏng robot arm UR3e tích hợp tay kẹp SusGrip 2F trong PyBullet, ph�
 
 ---
 
-## 🛠️ 1. Môi trường hoạt động (Conda Environment)
+## 1. Môi trường hoạt động (Conda Environment)
 
 Tất cả các lệnh chạy trong dự án cần được thực thi trong môi trường Conda **`ur_bullet`**:
 
@@ -15,7 +15,7 @@ conda activate ur_bullet
 
 ---
 
-## 🚀 2. Hướng dẫn Lệnh Chạy (Commands Quickstart)
+## 2. Hướng dẫn Lệnh Chạy (Commands Quickstart)
 
 ### 2.1 Thu thập dữ liệu theo Task Config YAML (`scripts/collect_data.py`)
 Script thu thập dữ liệu tự động cho các task được cấu hình trong `config/tasks/`.
@@ -74,7 +74,7 @@ python scripts/generate_bowl.py
 
 ---
 
-## ⚙️ 3. Cấu hình Task qua File YAML (`config/tasks/*.yaml`)
+## 3. Cấu hình Task qua File YAML (`config/tasks/*.yaml`)
 
 Môi trường `ManipulationEnv` trong `scripts/base_env.py` hoàn toàn được điều khiển bởi file cấu hình YAML. Để tạo task mới, chỉ cần thêm 1 file YAML vào `config/tasks/`.
 
@@ -151,7 +151,7 @@ language_instructions:
 
 ---
 
-## 📁 4. Cấu trúc Thư mục Dự án
+## 4. Cấu trúc Thư mục Dự án
 
 ```text
 ur_action_intent/
