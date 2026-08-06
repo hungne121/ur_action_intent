@@ -153,6 +153,7 @@ def evaluate_episode(
     total_reward = 0.0
     done = False
     success = False
+    stage_steps: dict = {}   # đếm số bước mỗi scenario_stage
 
     while not done and step_count < max_steps:
         # Transform observation to batch format
@@ -183,17 +184,21 @@ def evaluate_episode(
         # Step environment
         obs, reward, done, info = env.apply_action(action_np)
 
+        # Track steps per scenario stage
+        stage = obs.get("scenario_stage", "unknown")
+        stage_steps[stage] = stage_steps.get(stage, 0) + 1
+
         total_reward += reward
         step_count += 1
         success = info.get("is_success", False)
 
         if step_count % 50 == 0:
-            print(f"  [Progress] Episode Step {step_count}/{max_steps} | Success: {success}", flush=True)
+            print(f"  [Progress] Episode Step {step_count}/{max_steps} | Stage: {stage} | Success: {success}", flush=True)
 
         if gui_sleep > 0:
             time.sleep(gui_sleep)
 
-    return success, step_count, total_reward
+    return success, step_count, total_reward, stage_steps
 
 
 # =========================================================
@@ -227,7 +232,7 @@ def run_evaluation(args):
         ep_seed = args.seed + ep_idx if args.seed is not None else None
         env.rng = np.random.default_rng(ep_seed)
 
-        success, steps, reward = evaluate_episode(
+        success, steps, reward, stage_steps = evaluate_episode(
             env=env,
             policy=policy,
             device=device,
@@ -247,6 +252,7 @@ def run_evaluation(args):
             "steps": steps,
             "reward": reward,
             "instruction": env.current_instruction,
+            "stage_steps": stage_steps,   # per-stage breakdown
         })
 
     success_rate = (successes / args.episodes) * 100.0

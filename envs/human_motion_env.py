@@ -23,16 +23,19 @@ from envs.human_motion_player import HumanMotionPlayer
 class HumanMotionEnv:
     def __init__(
         self,
-        motion_file: str = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/20260803_101050715_117838a8_000.fbx",
+        motion_file: str = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/handover01/20260805_102754201_70f7665a_000.gltf",
         gui: bool = True,
-        human_origin: Tuple[float, float, float] = (0.38, -0.65, 0.0),
-        human_scale: float = 0.01,
+        human_origin: Tuple[float, float, float] = (0.38, -0.62, 0.0),
+        human_scale: float = 0.008,
+        use_mesh_body: bool = True,
+        use_builtin_urdf: bool = False,
     ):
         self.gui = gui
-        self.motion_file = motion_file
+        self.motion_file = self._resolve_motion_file(motion_file)
         self.human_origin = human_origin
         self.human_scale = human_scale
-
+        self.use_mesh_body = use_mesh_body
+        self.use_builtin_urdf = use_builtin_urdf
 
         if self.gui:
             self._client = p.connect(p.GUI, options="--width=1600 --height=1000")
@@ -49,6 +52,18 @@ class HumanMotionEnv:
 
         self.reset()
 
+    def _resolve_motion_file(self, target_path: str) -> str:
+        p_path = Path(target_path)
+        if p_path.exists():
+            return str(p_path)
+        # Search hy_motion directory recursively for .gltf or .fbx files
+        hy_dir = Path("/home/hungdao/ur_ws/src/ur_action_intent/hy_motion")
+        if hy_dir.exists():
+            cands = list(hy_dir.rglob("*.gltf")) + list(hy_dir.rglob("*.fbx"))
+            if cands:
+                return str(sorted(cands)[0])
+        return str(p_path)
+
     def reset(self):
         p.resetSimulation()
         p.setGravity(0, 0, -9.81)
@@ -62,7 +77,6 @@ class HumanMotionEnv:
         )
 
         # 2. Tải vật thể Cốc (Cup / Cube) ứng với nhãn "human pick the cup"
-        # Đặt vật thể trên mặt bàn tại vị trí tay người vươn tới (khoảng x=0.35, y=0.1, z=0.65)
         try:
             self.cup_id = p.loadURDF(
                 "cube_small.urdf",
@@ -70,18 +84,22 @@ class HumanMotionEnv:
                 p.getQuaternionFromEuler([0, 0, 0]),
                 globalScaling=1.2,
             )
-            # Đổi màu vật thể sang màu cam sáng nổi bật
             p.changeVisualShape(self.cup_id, -1, rgbaColor=[1.0, 0.5, 0.1, 1.0])
         except Exception:
             self.cup_id = None
 
-        # 3. Khởi tạo mô hình chuyển động người từ HY-Motion FBX
+        # 3. Khởi tạo mô hình chuyển động người từ HY-Motion FBX/GLTF với 3D Mesh Body
         self.human_player = HumanMotionPlayer(
             motion_file_path=self.motion_file,
             scale=self.human_scale,
             origin_offset=self.human_origin,
         )
-        self.human_player.spawn_in_pybullet(joint_radius=0.035)
+        self.human_player.spawn_in_pybullet(
+            joint_radius=0.035,
+            use_mesh_body=self.use_mesh_body,
+            use_builtin_urdf=self.use_builtin_urdf,
+        )
+
 
         # 4. Cấu hình Debug Camera hướng vào người & bàn làm việc
         if self.gui:

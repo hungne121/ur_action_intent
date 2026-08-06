@@ -22,15 +22,17 @@ def main():
     print("   Bấm Ctrl + C trên Terminal để dừng mô phỏng.")
     print("=" * 65)
 
-    motion_file = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/20260803_101050715_117838a8_000.fbx"
+    motion_file = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/handover01/20260805_102754201_70f7665a_000.gltf"
     
-    # Khởi tạo môi trường PyBullet với GIAO DIỆN GUI (gui=True)
+    # Khởi tạo môi trường PyBullet với GIAO DIỆN GUI (gui=True) và 3D Human Body Mesh
     env = HumanMotionEnv(
         motion_file=motion_file,
         gui=True,
-        human_origin=(0.38, -0.65, 0.0),
+        human_origin=(0.38, -1.15, 0.0),
         human_scale=0.01,
+        use_mesh_body=True,
     )
+
 
     total_frames = env.human_player.num_frames
     print(f"-> Nạp thành công dữ liệu chuyển động ({total_frames} frames).")

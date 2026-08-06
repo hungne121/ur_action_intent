@@ -6,11 +6,15 @@ Chạy qua 300 khung hình chuyển động "human pick the cup", in thông tin 
 """
 
 import os
+import sys
 from pathlib import Path
 import pybullet as p
 from PIL import Image
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from envs.human_motion_env import HumanMotionEnv
+
 
 
 def main():
@@ -18,7 +22,7 @@ def main():
     print(" BẮT ĐẦU CHẠY THỬ MÔI TRƯỜNG PYBULLET HUMAN MOTION (HY-MOTION)")
     print("=" * 60)
 
-    motion_file = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/20260803_101050715_117838a8_000.fbx"
+    motion_file = "/home/hungdao/ur_ws/src/ur_action_intent/hy_motion/handover01/20260805_102754201_70f7665a_000.gltf"
     
     # Khởi tạo môi trường
     env = HumanMotionEnv(
@@ -26,7 +30,9 @@ def main():
         gui=False,  # Chạy headless để kiểm tra và render ảnh tự động
         human_origin=(0.0, -0.6, 0.0),
         human_scale=0.01,
+        use_mesh_body=True,
     )
+
 
     total_frames = env.human_player.num_frames
     print(f"-> Đã nạp dữ liệu chuyển động thành công!")

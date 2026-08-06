@@ -9,6 +9,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 import yaml
 
+try:
+    from envs.scenario import ScenarioScript
+except ImportError:
+    from scenario import ScenarioScript
+
 
 @dataclass
 class SpawnRegion:
@@ -74,6 +79,10 @@ class HumanMotionSpec:
     scale: float = 0.01
     target_joint: str = "R_Wrist"
     joint_radius: float = 0.035
+    use_mesh_body: bool = True
+    use_builtin_urdf: bool = False
+    builtin_urdf_path: str = "humanoid/humanoid.urdf"
+
 
 
 @dataclass
@@ -85,6 +94,7 @@ class TaskConfig:
     success_condition: SuccessCondition
     episode: EpisodeSpec
     human_motion: Optional[HumanMotionSpec] = None
+    scenario_script: Optional[ScenarioScript] = None  # HRI scenario staging (tùy chọn)
     language_instructions: list = field(default_factory=list)  # nhiều câu instruction khác nhau cho cùng task
 
     @staticmethod
@@ -103,6 +113,7 @@ class TaskConfig:
         success = SuccessCondition(**raw["success_condition"])
         episode = EpisodeSpec(**raw.get("episode", {}))
         human_motion = HumanMotionSpec(**raw["human_motion"]) if "human_motion" in raw else None
+        scenario_script = ScenarioScript.from_dict(raw["scenario_script"]) if "scenario_script" in raw else None
 
         return TaskConfig(
             task_name=raw["task_name"],
@@ -112,5 +123,6 @@ class TaskConfig:
             success_condition=success,
             episode=episode,
             human_motion=human_motion,
+            scenario_script=scenario_script,
             language_instructions=raw.get("language_instructions", []),
         )

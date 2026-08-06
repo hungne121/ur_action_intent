@@ -10,13 +10,15 @@ Hỗ trợ:
 
 import json
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pybullet as p
+import pybullet_data
 from scipy.spatial.transform import Rotation as R
 
 # Danh sách khớp chính để vẽ khung xương người chuẩn SMPL
@@ -44,6 +46,61 @@ KEY_BONES = [
     ("R_Ankle", "R_Foot"),
 ]
 
+# Cấu hình màu sắc & bán kính 3D mesh chuẩn cơ thể người (Skin tone, Shirt, Pants, Shoes)
+DEFAULT_SKIN_COLOR = [0.92, 0.75, 0.65, 1.0]
+DEFAULT_SHIRT_COLOR = [0.15, 0.28, 0.55, 1.0]
+DEFAULT_PANTS_COLOR = [0.20, 0.20, 0.25, 1.0]
+DEFAULT_SHOES_COLOR = [0.10, 0.10, 0.12, 1.0]
+
+BONE_PARTS_CONFIG = {
+    ("Pelvis", "Spine1"): {"radius": 0.085, "color": DEFAULT_SHIRT_COLOR},
+    ("Spine1", "Spine2"): {"radius": 0.090, "color": DEFAULT_SHIRT_COLOR},
+    ("Spine2", "Spine3"): {"radius": 0.095, "color": DEFAULT_SHIRT_COLOR},
+    ("Spine3", "Neck"): {"radius": 0.050, "color": DEFAULT_SKIN_COLOR},
+    ("Neck", "Head"): {"radius": 0.045, "color": DEFAULT_SKIN_COLOR},
+    ("Spine3", "L_Collar"): {"radius": 0.045, "color": DEFAULT_SHIRT_COLOR},
+    ("L_Collar", "L_Shoulder"): {"radius": 0.045, "color": DEFAULT_SHIRT_COLOR},
+    ("L_Shoulder", "L_Elbow"): {"radius": 0.040, "color": DEFAULT_SHIRT_COLOR},
+    ("L_Elbow", "L_Wrist"): {"radius": 0.035, "color": DEFAULT_SKIN_COLOR},
+    ("Spine3", "R_Collar"): {"radius": 0.045, "color": DEFAULT_SHIRT_COLOR},
+    ("R_Collar", "R_Shoulder"): {"radius": 0.045, "color": DEFAULT_SHIRT_COLOR},
+    ("R_Shoulder", "R_Elbow"): {"radius": 0.040, "color": DEFAULT_SHIRT_COLOR},
+    ("R_Elbow", "R_Wrist"): {"radius": 0.035, "color": DEFAULT_SKIN_COLOR},
+    ("Pelvis", "L_Hip"): {"radius": 0.060, "color": DEFAULT_PANTS_COLOR},
+    ("L_Hip", "L_Knee"): {"radius": 0.055, "color": DEFAULT_PANTS_COLOR},
+    ("L_Knee", "L_Ankle"): {"radius": 0.048, "color": DEFAULT_PANTS_COLOR},
+    ("L_Ankle", "L_Foot"): {"radius": 0.040, "color": DEFAULT_SHOES_COLOR},
+    ("Pelvis", "R_Hip"): {"radius": 0.060, "color": DEFAULT_PANTS_COLOR},
+    ("R_Hip", "R_Knee"): {"radius": 0.055, "color": DEFAULT_PANTS_COLOR},
+    ("R_Knee", "R_Ankle"): {"radius": 0.048, "color": DEFAULT_PANTS_COLOR},
+    ("R_Ankle", "R_Foot"): {"radius": 0.040, "color": DEFAULT_SHOES_COLOR},
+}
+
+
+def _compute_bone_transform(p0: np.ndarray, p1: np.ndarray) -> Tuple[np.ndarray, List[float], float]:
+    """Tính vị trí trung điểm (center), quaternion định hướng (quat) và độ dài (length) cho hình trụ/capsule 3D."""
+    p0 = np.asarray(p0, dtype=np.float32)
+    p1 = np.asarray(p1, dtype=np.float32)
+    center = (p0 + p1) / 2.0
+    vec = p1 - p0
+    length = float(np.linalg.norm(vec))
+    if length < 1e-4:
+        return center, [0.0, 0.0, 0.0, 1.0], 1e-4
+    dir_vec = vec / length
+    z_axis = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+    dot = float(np.dot(z_axis, dir_vec))
+    if dot > 0.99999:
+        quat = [0.0, 0.0, 0.0, 1.0]
+    elif dot < -0.99999:
+        quat = [1.0, 0.0, 0.0, 0.0]
+    else:
+        rot_axis = np.cross(z_axis, dir_vec)
+        rot_axis = rot_axis / np.linalg.norm(rot_axis)
+        angle = float(np.arccos(np.clip(dot, -1.0, 1.0)))
+        quat = R.from_rotvec(rot_axis * angle).as_quat().tolist()
+    return center, quat, length
+
+
 
 class HumanMotionPlayer:
     def __init__(
@@ -51,12 +108,14 @@ class HumanMotionPlayer:
         motion_file_path: str,
         scale: float = 0.01,
         origin_offset: Tuple[float, float, float] = (0.0, 0.0, 0.0),
-        joint_color: List[float] = [0.1, 0.6, 0.9, 1.0], # Blue cyan
-        bone_color: List[float] = [0.9, 0.7, 0.2, 1.0],  # Warm gold
+        auto_floor_align: bool = True,
+        joint_color: List[float] = [0.1, 0.6, 0.9, 1.0],
+        bone_color: List[float] = [0.9, 0.7, 0.2, 1.0],
     ):
         self.motion_file_path = Path(motion_file_path)
         self.scale = scale
         self.origin_offset = np.array(origin_offset, dtype=np.float32)
+        self.auto_floor_align = auto_floor_align
         self.joint_color = joint_color
         self.bone_color = bone_color
 
@@ -74,6 +133,8 @@ class HumanMotionPlayer:
 
         self.current_frame = 0
         self._load_gltf_and_compute_fk()
+        if self.auto_floor_align:
+            self._apply_floor_align()
 
     def _ensure_gltf_exists(self) -> Path:
         path = self.motion_file_path
@@ -226,61 +287,183 @@ class HumanMotionPlayer:
                 self.joint_trajectories[i][f_idx] = np.array([px, py, pz], dtype=np.float32)
 
 
+    def _apply_floor_align(self):
+        """Dịch chuyển toàn bộ trajectories theo Z để chân chạm sàn (z=0)."""
+        min_z = float("inf")
+        for foot_name in ["R_Foot", "L_Foot"]:
+            if foot_name in self.node_name_to_id:
+                nid = self.node_name_to_id[foot_name]
+                min_z = min(min_z, float(self.joint_trajectories[nid][:, 2].min()))
+        if min_z < float("inf") and min_z != 0.0:
+            z_shift = -min_z
+            for nid in self.joint_trajectories:
+                self.joint_trajectories[nid][:, 2] += z_shift
+
     def get_joint_position(self, joint_name: str, frame_idx: int) -> np.ndarray:
+
         if joint_name not in self.node_name_to_id:
             raise KeyError(f"Khớp '{joint_name}' không tồn tại trong mô hình.")
         jid = self.node_name_to_id[joint_name]
         f_clamped = int(np.clip(frame_idx, 0, self.num_frames - 1))
         return self.joint_trajectories[jid][f_clamped]
 
-    def spawn_in_pybullet(self, joint_radius: float = 0.03):
-        """Khởi tạo mô hình visual khớp & xương người trong PyBullet."""
+    def spawn_in_pybullet(
+        self,
+        joint_radius: float = 0.035,
+        use_mesh_body: bool = True,
+        use_builtin_urdf: bool = False,
+        builtin_urdf_path: str = "humanoid/humanoid.urdf",
+        use_debug_lines: bool = False,
+    ):
+        """
+        Khởi tạo mô hình cơ thể người 3D trong PyBullet.
+        Hỗ trợ:
+        - use_mesh_body=True: Dùng 3D Solid Body Mesh (Capsules/Spheres chuẩn tỷ lệ cơ thể người: Torso, Head, Limbs, Color Palette).
+        - use_builtin_urdf=True: Load thêm file URDF humanoid built-in chính thức của PyBullet (humanoid/humanoid.urdf).
+        - use_debug_lines=True: Tạo các đường debug lines nối các khớp.
+        """
+        self.use_mesh_body = use_mesh_body
+        self.use_builtin_urdf = use_builtin_urdf
         self.sphere_ids = {}
         self.line_ids = {}
+        self.mesh_bone_ids = {}
+        self.mesh_hand_ids = {}
+        self.mesh_head_id = None
+        self.builtin_urdf_id = None
 
-        # Tạo visual spheres cho các khớp chính
-        sphere_visual_id = p.createVisualShape(
-            p.GEOM_SPHERE,
-            radius=joint_radius,
-            rgbaColor=self.joint_color,
-        )
-
-        for name, jid in self.node_name_to_id.items():
-            # Chỉ tạo sphere cho các khớp thuộc cây cơ thể (có vị trí xác định)
-            init_pos = self.joint_trajectories[jid][0]
-            body_id = p.createMultiBody(
-                baseMass=0,
-                baseVisualShapeIndex=sphere_visual_id,
-                basePosition=init_pos.tolist(),
-            )
-            self.sphere_ids[jid] = body_id
-
-        # Khởi tạo các đoạn liên kết xương bằng debug lines
-        for parent_name, child_name in KEY_BONES:
-            if parent_name in self.node_name_to_id and child_name in self.node_name_to_id:
-                pid = self.node_name_to_id[parent_name]
-                cid = self.node_name_to_id[child_name]
-                p0 = self.joint_trajectories[pid][0]
-                p1 = self.joint_trajectories[cid][0]
-
-                line_id = p.addUserDebugLine(
-                    lineFromXYZ=p0.tolist(),
-                    lineToXYZ=p1.tolist(),
-                    lineColorRGB=self.bone_color[:3],
-                    lineWidth=4.0,
+        # 1. Nạp mô hình Built-in Humanoid URDF của PyBullet nếu được yêu cầu
+        if self.use_builtin_urdf:
+            try:
+                p.setAdditionalSearchPath(pybullet_data.getDataPath())
+                self.builtin_urdf_id = p.loadURDF(
+                    builtin_urdf_path,
+                    basePosition=self.origin_offset.tolist(),
+                    baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
+                    useFixedBase=True,
+                    globalScaling=self.scale * 100.0 if self.scale != 1.0 else 1.0,
                 )
-                self.line_ids[(pid, cid)] = line_id
+                print(f"[INFO] Nạp thành công PyBullet Built-in Humanoid URDF: '{builtin_urdf_path}' (ID: {self.builtin_urdf_id})")
+            except Exception as e:
+                print(f"[WARN] Không thể nạp Built-in Humanoid URDF ({e}), chuyển sang 3D Body Mesh...")
+
+        # 2. Tạo 3D Mesh Body Geometry cho khung xương người
+        if self.use_mesh_body:
+            # A. Dựng 3D Mesh Capsules cho các đoạn xương (Bones)
+            for parent_name, child_name in KEY_BONES:
+                if parent_name in self.node_name_to_id and child_name in self.node_name_to_id:
+                    pid = self.node_name_to_id[parent_name]
+                    cid = self.node_name_to_id[child_name]
+                    p0 = self.joint_trajectories[pid][0]
+                    p1 = self.joint_trajectories[cid][0]
+
+                    center, quat, length = _compute_bone_transform(p0, p1)
+                    cfg = BONE_PARTS_CONFIG.get((parent_name, child_name), {"radius": 0.04, "color": DEFAULT_SKIN_COLOR})
+
+                    vis_shape = p.createVisualShape(
+                        p.GEOM_CAPSULE,
+                        radius=cfg["radius"],
+                        length=length,
+                        rgbaColor=cfg["color"],
+                    )
+                    body_id = p.createMultiBody(
+                        baseMass=0,
+                        baseVisualShapeIndex=vis_shape,
+                        basePosition=center.tolist(),
+                        baseOrientation=quat,
+                    )
+                    self.mesh_bone_ids[(pid, cid)] = body_id
+
+            # B. Dựng 3D Mesh Head Sphere tại vị trí khớp Đầu
+            if "Head" in self.node_name_to_id:
+                head_id = self.node_name_to_id["Head"]
+                head_pos = self.joint_trajectories[head_id][0]
+                head_vis = p.createVisualShape(
+                    p.GEOM_SPHERE,
+                    radius=0.088,
+                    rgbaColor=DEFAULT_SKIN_COLOR,
+                )
+                self.mesh_head_id = p.createMultiBody(
+                    baseMass=0,
+                    baseVisualShapeIndex=head_vis,
+                    basePosition=head_pos.tolist(),
+                )
+
+            # C. Dựng 3D Mesh Hand Spheres tại các khớp Bàn tay (L_Wrist, R_Wrist)
+            for hand_name in ["L_Wrist", "R_Wrist"]:
+                if hand_name in self.node_name_to_id:
+                    hid = self.node_name_to_id[hand_name]
+                    h_pos = self.joint_trajectories[hid][0]
+                    hand_vis = p.createVisualShape(
+                        p.GEOM_SPHERE,
+                        radius=0.038,
+                        rgbaColor=DEFAULT_SKIN_COLOR,
+                    )
+                    self.mesh_hand_ids[hid] = p.createMultiBody(
+                        baseMass=0,
+                        baseVisualShapeIndex=hand_vis,
+                        basePosition=h_pos.tolist(),
+                    )
+        else:
+            # Fallback tạo Visual Spheres cho từng khớp đơn lẻ
+            sphere_visual_id = p.createVisualShape(
+                p.GEOM_SPHERE,
+                radius=joint_radius,
+                rgbaColor=self.joint_color,
+            )
+            for name, jid in self.node_name_to_id.items():
+                init_pos = self.joint_trajectories[jid][0]
+                body_id = p.createMultiBody(
+                    baseMass=0,
+                    baseVisualShapeIndex=sphere_visual_id,
+                    basePosition=init_pos.tolist(),
+                )
+                self.sphere_ids[jid] = body_id
+
+        # 3. Tạo Debug Lines nếu được kích hoạt
+        if use_debug_lines:
+            for parent_name, child_name in KEY_BONES:
+                if parent_name in self.node_name_to_id and child_name in self.node_name_to_id:
+                    pid = self.node_name_to_id[parent_name]
+                    cid = self.node_name_to_id[child_name]
+                    p0 = self.joint_trajectories[pid][0]
+                    p1 = self.joint_trajectories[cid][0]
+                    line_id = p.addUserDebugLine(
+                        lineFromXYZ=p0.tolist(),
+                        lineToXYZ=p1.tolist(),
+                        lineColorRGB=self.bone_color[:3],
+                        lineWidth=4.0,
+                    )
+                    self.line_ids[(pid, cid)] = line_id
 
     def update(self, frame_idx: int):
-        """Cập nhật vị trí toàn bộ khung xương theo frame_idx."""
+        """Cập nhật vị trí và định hướng toàn bộ mô hình cơ thể người 3D mesh theo frame_idx."""
         self.current_frame = int(np.clip(frame_idx, 0, self.num_frames - 1))
 
-        # Cập nhật vị trí từng khớp sphere
+        # 1. Cập nhật các khối 3D Mesh Capsules cho xương
+        if self.use_mesh_body:
+            for (pid, cid), body_id in self.mesh_bone_ids.items():
+                p0 = self.joint_trajectories[pid][self.current_frame]
+                p1 = self.joint_trajectories[cid][self.current_frame]
+                center, quat, _ = _compute_bone_transform(p0, p1)
+                p.resetBasePositionAndOrientation(body_id, center.tolist(), quat)
+
+            # Cập nhật vị trí Head Sphere
+            if self.mesh_head_id is not None and "Head" in self.node_name_to_id:
+                head_id = self.node_name_to_id["Head"]
+                head_pos = self.joint_trajectories[head_id][self.current_frame]
+                p.resetBasePositionAndOrientation(self.mesh_head_id, head_pos.tolist(), [0, 0, 0, 1])
+
+            # Cập nhật vị trí Hand Spheres
+            for hid, body_id in self.mesh_hand_ids.items():
+                hand_pos = self.joint_trajectories[hid][self.current_frame]
+                p.resetBasePositionAndOrientation(body_id, hand_pos.tolist(), [0, 0, 0, 1])
+
+        # 2. Cập nhật Joint Spheres nếu sử dụng
         for jid, body_id in self.sphere_ids.items():
             pos = self.joint_trajectories[jid][self.current_frame]
             p.resetBasePositionAndOrientation(body_id, pos.tolist(), [0, 0, 0, 1])
 
-        # Cập nhật các đường xương bone lines
+        # 3. Cập nhật các đường Debug Lines nếu có
         for (pid, cid), line_id in self.line_ids.items():
             p0 = self.joint_trajectories[pid][self.current_frame]
             p1 = self.joint_trajectories[cid][self.current_frame]
@@ -296,3 +479,4 @@ class HumanMotionPlayer:
         """Tiến lên 1 khung hình tiếp theo."""
         next_frame = (self.current_frame + 1) % self.num_frames
         self.update(next_frame)
+

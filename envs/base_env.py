@@ -28,12 +28,14 @@ try:
     from envs.gripper import GripperController, HIGH_FRICTION_LINKS
     from envs.camera import CameraManager
     from envs.human_motion_player import HumanMotionPlayer
+    from envs.scenario import ScenarioExecutor
 except ImportError:
     from scene_config import TaskConfig
     from urdf_utils import _resolve_urdf_path, ROS_SETUP_PATHS
     from gripper import GripperController, HIGH_FRICTION_LINKS
     from camera import CameraManager
     from human_motion_player import HumanMotionPlayer
+    from scenario import ScenarioExecutor
 
 
 class ManipulationEnv:
@@ -67,6 +69,7 @@ class ManipulationEnv:
         self.current_instruction = ""
         self.fixed_ee_euler = [np.pi, 0.0, -np.pi / 2.0]
         self.human_player: Optional[HumanMotionPlayer] = None
+        self.scenario: Optional[ScenarioExecutor] = None
 
         self.reset()
 
@@ -107,6 +110,12 @@ class ManipulationEnv:
 
         self.current_step = 0
         self.has_closed_gripper = False
+
+        # Khởi tạo ScenarioExecutor nếu task có scenario_script
+        if self.cfg.scenario_script:
+            self.scenario = ScenarioExecutor(self.cfg.scenario_script)
+        else:
+            self.scenario = None
 
         # Choose a random language instruction variant if available
         if self.cfg.language_instructions:
@@ -375,7 +384,13 @@ class ManipulationEnv:
             scale=spec.scale,
             origin_offset=tuple(spec.origin),
         )
-        self.human_player.spawn_in_pybullet(joint_radius=spec.joint_radius)
+        self.human_player.spawn_in_pybullet(
+            joint_radius=spec.joint_radius,
+            use_mesh_body=getattr(spec, "use_mesh_body", True),
+            use_builtin_urdf=getattr(spec, "use_builtin_urdf", False),
+            builtin_urdf_path=getattr(spec, "builtin_urdf_path", "humanoid/humanoid.urdf"),
+        )
+
 
     def _setup_debug_camera(self):
         self.camera_manager.setup_debug_camera()
@@ -514,12 +529,16 @@ class ManipulationEnv:
                     self.move_gripper(float(action_arr[6]))
 
         substeps = max(1, int(240 / getattr(self.cfg.episode, "control_hz", 20)))
+        # Tính frame human motion: dùng executor nếu có, fallback current_step
+        human_frame = self.scenario.human_frame() if self.scenario else self.current_step
         for _ in range(substeps):
             if self.human_player is not None:
-                self.human_player.update(self.current_step)
+                self.human_player.update(human_frame)
             p.stepSimulation()
             if self.gui:
                 time.sleep(1.0 / 240.0)
+        if self.scenario:
+            self.scenario.tick()
 
         self.current_step += 1
         obs = self._get_obs()
@@ -568,11 +587,16 @@ class ManipulationEnv:
         if self.human_player is not None:
             target_j = getattr(self.cfg.human_motion, "target_joint", "R_Wrist")
             try:
-                human_hand_pos = self.human_player.get_joint_position(target_j, self.current_step)
+                h_frame = self.scenario.human_frame() if self.scenario else self.current_step
+                human_hand_pos = self.human_player.get_joint_position(target_j, h_frame)
                 obs["human_hand_pos"] = human_hand_pos
                 obs["object_positions"]["human_hand"] = human_hand_pos
             except KeyError:
                 pass
+
+        # Scenario context (stage hiện tại, human signal) — None nếu không có scenario
+        if self.scenario:
+            obs.update(self.scenario.obs_context())
 
         # Expose individual camera image keys by camera name and by camera index
         for cam_name, img in images.items():
@@ -627,11 +651,16 @@ class ManipulationEnv:
                     b = np.array(tgt_pos, dtype=np.float32)
                 elif cond.target == "human_hand" and self.human_player is not None:
                     target_j = getattr(self.cfg.human_motion, "target_joint", "R_Wrist")
-                    b = self.human_player.get_joint_position(target_j, self.current_step)
+                    h_frame = self.scenario.human_frame() if self.scenario else self.current_step
+                    b = self.human_player.get_joint_position(target_j, h_frame)
 
                 if b is not None:
                     thresh = cond.threshold if cond.threshold is not None else 0.08
-                    return bool(np.linalg.norm(np.array(a) - np.array(b)) < thresh)
+                    dist_ok = bool(np.linalg.norm(np.array(a) - np.array(b)) < thresh)
+                    # Nếu có scenario, CHỈ công nhận success khi ở stage cuối (handover)
+                    if self.scenario and not self.scenario.is_last_stage():
+                        return False
+                    return dist_ok
 
         else:
             raise ValueError(

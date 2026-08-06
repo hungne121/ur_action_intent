@@ -1,4 +1,6 @@
 task_name: handover_cube_to_human
+# role_pattern: collaborator — Người CHỦ ĐỘNG giơ tay (signal intent),
+# robot PHẢN HỒI bằng cách pick cube và đưa đến tay người.
 
 robot:
   urdf: assets/robot/ur3e_susgrip.urdf
@@ -6,28 +8,66 @@ robot:
   fixed_base: true
   gripper_finger_offset: 0.138
 
+human_motion:
+  motion_dir: "hy_motion/handover01"
+  origin: [0.38, -0.62, 0.0]        # person stands close to table (clearance +0.033m)
+  scale: 0.008                      # scaled so R_Wrist reaches natural handover height z=0.90m
+  target_joint: "R_Wrist"
+  joint_radius: 0.035
+  use_mesh_body: true
+
 objects:
   - name: cube
     urdf: assets/objects/cube.urdf
     fixed_base: false
     spawn_region:
-      x: [0.28, 0.44]
-      y: [-0.22, 0.22]
+      x: [0.33, 0.42]    # Thu hẹp — cube chắc chắn trong tầm với robot
+      y: [-0.12, 0.12]   # Thu hẹp — tránh phía người đứng
       z: [0.65, 0.65]
       randomize_yaw: true
 
-human_motion:
-  motion_dir: "hy_motion/handover01"
-  origin: [0.38, -0.45, 0.0]
-  scale: 0.01
-  target_joint: "R_Wrist"
-  joint_radius: 0.035
+# ── Scenario Script (HRIBench Instructor Role) ────────────────────────────────
+# Stage 1: pick        — Robot gắp khối cube lên (người giữ tư thế ban đầu frame 0)
+# Stage 2: wait_signal — Robot giữ khối chờ, người giơ tay ra phát cử chỉ (frames 0→90)
+# Stage 3: handover    — Robot đưa khối cube bỏ vào tay người và thả ra
+# ─────────────────────────────────────────────────────────────────────────────
+scenario_script:
+  role_pattern: instructor
+
+  stages:
+    # Stage 1: Robot nhặt cube lên trước
+    - id: pick
+      agent: robot
+      description: "Robot grasps cube from table and lifts it up"
+      expert_phases: [approach, pre_descend, descend, close, hold_close, lift]
+      motion_start_frame: 0
+      motion_end_frame: 0            # human ở tư thế nghỉ frame 0
+      max_duration_steps: 120
+
+    # Stage 2: Robot đứng chờ, người giơ tay ra ra hiệu
+    - id: wait_signal
+      agent: human
+      description: "Robot holds cube in air waiting for human to extend right arm gesture signal"
+      expert_phases: [hold_close]    # robot giữ cube chờ
+      motion_start_frame: 0
+      motion_end_frame: 90           # human giơ tay từ frame 0 đến 90
+      max_duration_steps: 90
+
+    # Stage 3: Robot đưa khối cube bỏ vào tay người
+    - id: handover
+      agent: both
+      description: "Robot moves cube to human hand and places it"
+      expert_phases: [move_to_target, place]
+      motion_start_frame: 90
+      motion_end_frame: 110          # human giữ tay ở vị trí chờ nhận
+      max_duration_steps: 150
+
 
 cameras:
   - name: camera1
-    position: [0.90, -0.55, 1.05]
-    target: [0.38, 0.00, 0.78]
-    fov: 55
+    position: [1.35, -0.30, 1.15]     # Góc chéo cạnh-trước bao quát toàn bộ Người + Robot
+    target: [0.25, -0.30, 0.75]
+    fov: 65
     width: 224
     height: 224
   - name: camera2
@@ -46,7 +86,7 @@ success_condition:
   type: distance_below
   object: cube
   target: human_hand
-  threshold: 0.08
+  threshold: 0.15
 
 episode:
   max_steps: 300
@@ -57,7 +97,7 @@ language_instructions:
   - "pick up the cube and give it to the person"
   - "pass the block to the person's hand"
   - "deliver the orange cube to the human hand"
-  - "pick the cube and place it in the person's hand"
   - "transfer the cube to the human"
-  - "give the cube to the human waiting by the table"
-  - "hand the orange block to the person"
+  - "give the cube to the person who is reaching out"
+  - "respond to the human's gesture and hand over the block"
+  - "hand the orange block to the person waiting"

@@ -109,7 +109,8 @@ def make_expert_action(env: ManipulationEnv, phase: str) -> np.ndarray:
     elif env.cfg.success_condition.target == "human_hand" and env.human_player is not None:
         target_j = getattr(env.cfg.human_motion, "target_joint", "R_Wrist")
         try:
-            hpos = env.human_player.get_joint_position(target_j, env.current_step)
+            h_frame = env.scenario.human_frame() if env.scenario else env.current_step
+            hpos = env.human_player.get_joint_position(target_j, h_frame)
             tgt_pos = np.array(hpos, dtype=np.float32)
         except KeyError:
             tgt_pos = None
@@ -215,7 +216,8 @@ def phase_done(env: ManipulationEnv, phase: str, step_count: int) -> bool:
         elif env.cfg.success_condition.target == "human_hand" and env.human_player is not None:
             target_j = getattr(env.cfg.human_motion, "target_joint", "R_Wrist")
             try:
-                hpos = env.human_player.get_joint_position(target_j, env.current_step)
+                h_frame = env.scenario.human_frame() if env.scenario else env.current_step
+                hpos = env.human_player.get_joint_position(target_j, h_frame)
                 return np.linalg.norm(ee_pos - hpos) < 0.06 or step_count >= 40
             except KeyError:
                 pass
@@ -256,17 +258,24 @@ def collect_dataset(
     saved_count = 0
     dropped_count = 0
 
-    has_bowl = "bowl" in [obj.name for obj in task_cfg.objects]
-    has_human_target = (task_cfg.success_condition.target == "human_hand") or (task_cfg.human_motion is not None)
-    phases = ["approach", "pre_descend", "descend", "close", "hold_close", "lift"]
-    if has_bowl or has_human_target:
-        phases.extend(["move_to_target", "place"])
+    # Phases: đọc từ ScenarioScript nếu có, fallback hardcode cho task cũ
+    if task_cfg.scenario_script:
+        phases = env.scenario.all_robot_phases
+    else:
+        has_bowl = "bowl" in [obj.name for obj in task_cfg.objects]
+        has_human_target = (task_cfg.success_condition.target == "human_hand") or (task_cfg.human_motion is not None)
+        phases = ["approach", "pre_descend", "descend", "close", "hold_close", "lift"]
+        if has_bowl or has_human_target:
+            phases.extend(["move_to_target", "place"])
 
     grasp_check_phases = {"lift", "move_to_target"}
 
     try:
         for ep_idx in range(num_episodes):
             obs = env.reset()
+            # Sync phases list nếu scenario_script reset executor
+            if task_cfg.scenario_script:
+                phases = env.scenario.all_robot_phases
 
             phase_idx = 0
             phase_step_count = 0
@@ -276,7 +285,16 @@ def collect_dataset(
             obj_name = "cube" if "cube" in env.object_ids else list(env.object_ids.keys())[0]
 
             for _ in range(task_cfg.episode.max_steps):
-                current_phase = phases[phase_idx]
+                if env.scenario:
+                    if env.scenario.is_stage_timeout():
+                        env.scenario.advance_stage()
+                        phase_step_count = 0
+                    current_phase = env.scenario.current_phase
+                    stage_agent = env.scenario.current_stage.agent if env.scenario.current_stage else "robot"
+                else:
+                    current_phase = phases[phase_idx] if phase_idx < len(phases) else "done"
+                    stage_agent = "robot"
+
                 action = make_expert_action(env, current_phase)
 
                 # Ghi frame vào LeRobotDataset buffer
@@ -288,6 +306,8 @@ def collect_dataset(
                 frame["observation.state"] = obs["joint_positions"]
                 frame["action"] = action.astype(np.float32)
                 frame["task"] = obs["instruction"]
+                # scenario_stage disp only — không thêm vào LeRobot frame (ngoài schema)
+                # eval_smolvla.py đọc trực tiếp từ obs["scenario_stage"]
 
                 dataset.add_frame(frame)
 
@@ -303,14 +323,18 @@ def collect_dataset(
                     else:
                         lost_grasp_count = 0
 
-                if phase_done(env, current_phase, phase_step_count):
-                    ee_pos, _ = env.get_ee_pose()
-                    obj_pos, _ = p.getBasePositionAndOrientation(env.object_ids[obj_name])
-                    print(f"  [DEBUG Phase {current_phase}->Next] Step={phase_step_count} EE_Z={ee_pos[2]:.3f} Obj_Z={obj_pos[2]:.3f}")
-                    phase_idx += 1
+                # Chuyển phase theo robot action (chỉ với agent thuộc 'robot' hoặc 'both')
+                if stage_agent != "human" and phase_done(env, current_phase, phase_step_count):
                     phase_step_count = 0
-                    if phase_idx >= len(phases):
-                        done = True
+                    if env.scenario:
+                        env.scenario.advance_phase()
+                    else:
+                        phase_idx += 1
+                        if phase_idx >= len(phases):
+                            done = True
+
+                if env.scenario and env.scenario.is_complete():
+                    done = True
 
                 if done:
                     success = env.is_success() and grasp_maintained
