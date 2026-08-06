@@ -1,11 +1,4 @@
 # ur_action_intent
-
-<<<<<<< HEAD
-Mô phỏng robot arm UR3e tích hợp tay kẹp SusGrip 2F trong PyBullet, phục vụ huấn luyện và đánh giá chính sách hành động (action policy) SmolVLA / VLA.
-=======
-Mô phỏng robot arm UR3e / UR5 tích hợp tay kẹp SusGrip 2F / Robotiq 85 trong PyBullet, phục vụ thu thập dữ liệu `LeRobotDataset`, huấn luyện và đánh giá chính sách hành động (action policy) SmolVLA / VLA cho các tác vụ thao tác tương tác Người - Robot (HRI).
->>>>>>> 13f9d2b (feat: implement SmolVLA policy components and add ScenarioExecutor for environment stage management)
-
 ---
 
 ## 1. Môi trường hoạt động (Conda Environment)
